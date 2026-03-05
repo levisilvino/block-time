@@ -34,6 +34,12 @@
 	gap: 8px;
 }
 
+.block-time-controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
 .block-time-nav-btn,
 .block-time-today-btn,
 .block-time-refresh-btn {
@@ -151,7 +157,7 @@
 }
 
 .day-view .block-time-hour-slot:hover {
-	background: var(--background-secondary-alt);
+	background: var(--background-secondary-alt, var(--background-secondary));
 }
 
 /* ============================================================================
@@ -215,7 +221,7 @@
 }
 
 .week-view .block-time-day-column.today {
-	background: rgba(var(--interactive-accent-rgb), 0.05);
+	background: rgba(var(--interactive-accent-rgb, 99, 102, 241), 0.05);
 }
 
 .week-view .block-time-hour-slot {
@@ -362,7 +368,7 @@
 }
 
 .block-time-unscheduled-list li:hover {
-	background: var(--background-primary-alt);
+	background: var(--background-primary-alt, var(--background-secondary));
 	transform: translateX(4px);
 }
 
@@ -480,7 +486,7 @@
 }
 
 .block-time-themed .week-view .block-time-day-column.today {
-	background: var(--background-primary-alt);
+	background: var(--background-primary-alt, var(--background-secondary));
 }
 
 /* Toggle ativo — usa accent do tema */

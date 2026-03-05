@@ -8,12 +8,48 @@ import {
 	TFile,
 	TFolder,
 	Notice,
-	moment
+	moment,
+	AbstractInputSuggest
 } from "obsidian";
 
 // ============================================================================
 // INTERFACES E TIPOS
 // ============================================================================
+
+interface FolderNode {
+	name: string;
+	path: string;
+	children: FolderNode[];
+}
+
+class FolderSuggest extends AbstractInputSuggest<string> {
+	private folders: Set<string>;
+
+	constructor(
+		app: App, 
+		inputEl: HTMLInputElement, 
+		folders: Set<string>
+	) {
+		super(app, inputEl);
+		this.folders = folders;
+	}
+
+	getSuggestions(query: string): string[] {
+		const lowerCaseQuery = query.toLowerCase();
+		return [...this.folders].filter(folder => 
+			folder.toLowerCase().includes(lowerCaseQuery)
+		);
+	}
+
+	renderSuggestion(folder: string, el: HTMLElement): void {
+		el.setText(folder);
+	}
+
+	selectSuggestion(folder: string, evt: MouseEvent | KeyboardEvent): void {
+		this.setValue(folder);
+		this.close();
+	}
+}
 
 interface BlockTimeSettings {
 	startHour: number;
@@ -84,6 +120,431 @@ interface TasksApiV1 {
 }
 
 // ============================================================================
+// INTERNACIONALIZAÇÃO
+// ============================================================================
+
+interface Translations {
+	[key: string]: {
+		[key: string]: string;
+	};
+}
+
+const TRANSLATIONS: Translations = {
+	'en': {
+		'view-title': 'Block Time Scheduler',
+		'day-view': 'Day View',
+		'week-view': 'Week View',
+		'today': 'Today',
+		'unscheduled-tasks': 'Unscheduled Tasks',
+		'no-tasks': 'No tasks scheduled',
+		'create-task': 'Create task',
+		'hours': 'Hours',
+		'priority-high': 'High',
+		'priority-medium': 'Medium', 
+		'priority-low': 'Low',
+		'task-completed': 'Task completed',
+		'task-uncompleted': 'Task uncompleted',
+		// Dias da semana
+		'sunday': 'Sun',
+		'monday': 'Mon',
+		'tuesday': 'Tue',
+		'wednesday': 'Wed',
+		'thursday': 'Thu',
+		'friday': 'Fri',
+		'saturday': 'Sat',
+		// Configurações
+		'settings-agenda': 'Agenda',
+		'settings-appearance': 'Appearance',
+		'settings-notifications': 'Notifications',
+		'settings-deadlines': 'Deadlines',
+		'settings-texts': 'Texts',
+		'start-hour': 'Start hour',
+		'start-hour-desc': 'Hour when the agenda starts',
+		'end-hour': 'End hour',
+		'end-hour-desc': 'Hour when the agenda ends',
+		'default-view': 'Default view',
+		'default-view-desc': 'Default view when opening the agenda',
+		'use-obsidian-theme': 'Use Obsidian theme',
+		'use-obsidian-theme-desc': 'Use colors from your current Obsidian theme',
+		'enable-notifications': 'Enable notifications',
+		'enable-notifications-desc': 'Show desktop notifications for tasks',
+		'notification-early': 'Early reminder',
+		'notification-early-desc': 'X minutes before task',
+		'notification-ontime': 'On time',
+		'notification-ontime-desc': 'Exact moment of task',
+		'notification-deadline-early': 'Deadline — minutes before',
+		'notification-deadline-early-desc': 'X minutes before deadline',
+		'notification-deadline-now': 'Deadline — now',
+		'notification-deadline-now-desc': 'Exact deadline time',
+		'notification-deadline-today': 'Deadline — today',
+		'notification-deadline-today-desc': 'Deadline is today (no time)',
+		'notification-deadline-days': 'Deadline — days',
+		'notification-deadline-days-desc': 'X days until deadline',
+		'scan-folders': 'Scan folders',
+		'scan-folders-desc': 'Folders to scan for tasks (comma separated)',
+		'no-folders-selected': 'No folders selected (entire vault)',
+		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
+		'advanced-folder-mode': 'Advanced folder selection mode',
+		'advanced-folder-mode-desc': 'Use advanced folder picker with tree view (disable for simple text mode)'
+	},
+	'pt': {
+		'view-title': 'Agenda de Blocos de Tempo',
+		'day-view': 'Visão Diária',
+		'week-view': 'Visão Semanal',
+		'today': 'Hoje',
+		'unscheduled-tasks': 'Tarefas sem horário definido',
+		'no-tasks': 'Nenhuma tarefa agendada',
+		'create-task': 'Criar tarefa',
+		'hours': 'Horas',
+		'priority-high': 'Alta',
+		'priority-medium': 'Média',
+		'priority-low': 'Baixa',
+		'task-completed': 'Tarefa concluída',
+		'task-uncompleted': 'Tarefa não concluída',
+		// Dias da semana
+		'sunday': 'Dom',
+		'monday': 'Seg',
+		'tuesday': 'Ter',
+		'wednesday': 'Qua',
+		'thursday': 'Qui',
+		'friday': 'Sex',
+		'saturday': 'Sáb',
+		// Configurações
+		'settings-agenda': 'Agenda',
+		'settings-appearance': 'Aparência',
+		'settings-notifications': 'Notificações',
+		'settings-deadlines': 'Prazos',
+		'settings-texts': 'Textos',
+		'start-hour': 'Hora inicial',
+		'start-hour-desc': 'Hora quando a agenda começa',
+		'end-hour': 'Hora final',
+		'end-hour-desc': 'Hora quando a agenda termina',
+		'default-view': 'Visão padrão',
+		'default-view-desc': 'Visão padrão ao abrir a agenda',
+		'use-obsidian-theme': 'Usar tema do Obsidian',
+		'use-obsidian-theme-desc': 'Usar cores do seu tema atual do Obsidian',
+		'enable-notifications': 'Ativar notificações',
+		'enable-notifications-desc': 'Mostrar notificações na área de trabalho para tarefas',
+		'notification-early': 'Lembrete antecipado',
+		'notification-early-desc': 'X minutos antes da tarefa',
+		'notification-ontime': 'No horário',
+		'notification-ontime-desc': 'Momento exato da tarefa',
+		'notification-deadline-early': 'Prazo — minutos antes',
+		'notification-deadline-early-desc': 'X minutos antes do prazo',
+		'notification-deadline-now': 'Prazo — agora',
+		'notification-deadline-now-desc': 'Horário exato do prazo',
+		'notification-deadline-today': 'Prazo — hoje',
+		'notification-deadline-today-desc': 'Prazo é hoje (sem horário)',
+		'notification-deadline-days': 'Prazo — dias',
+		'notification-deadline-days-desc': 'Faltam X dias para o prazo',
+		'scan-folders': 'Pastas para escanear',
+		'scan-folders-desc': 'Pastas para procurar tarefas (separadas por vírgula)',
+		'no-folders-selected': 'Nenhuma pasta selecionada (vault inteiro)',
+		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
+		'advanced-folder-mode': 'Modo avançado de seleção de pastas',
+		'advanced-folder-mode-desc': 'Use o seletor avançado com árvore de pastas (desative para modo simples com texto)'
+	},
+	'es': {
+		'view-title': 'Agenda de Bloques de Tiempo',
+		'day-view': 'Vista Diaria',
+		'week-view': 'Vista Semanal',
+		'today': 'Hoy',
+		'unscheduled-tasks': 'Tareas sin horario definido',
+		'no-tasks': 'No hay tareas programadas',
+		'create-task': 'Crear tarea',
+		'hours': 'Horas',
+		'priority-high': 'Alta',
+		'priority-medium': 'Media',
+		'priority-low': 'Baja',
+		'task-completed': 'Tarea completada',
+		'task-uncompleted': 'Tarea no completada',
+		// Dias da semana
+		'sunday': 'Dom',
+		'monday': 'Lun',
+		'tuesday': 'Mar',
+		'wednesday': 'Mié',
+		'thursday': 'Jue',
+		'friday': 'Vie',
+		'saturday': 'Sáb',
+		// Configurações
+		'settings-agenda': 'Agenda',
+		'settings-appearance': 'Apariencia',
+		'settings-notifications': 'Notificaciones',
+		'settings-deadlines': 'Plazos',
+		'settings-texts': 'Textos',
+		'start-hour': 'Hora de inicio',
+		'start-hour-desc': 'Hora cuando la agenda comienza',
+		'end-hour': 'Hora final',
+		'end-hour-desc': 'Hora cuando la agenda termina',
+		'default-view': 'Vista predeterminada',
+		'default-view-desc': 'Vista predeterminada al abrir la agenda',
+		'use-obsidian-theme': 'Usar tema de Obsidian',
+		'use-obsidian-theme-desc': 'Usar colores de tu tema actual de Obsidian',
+		'enable-notifications': 'Activar notificaciones',
+		'enable-notifications-desc': 'Mostrar notificaciones de escritorio para tareas',
+		'notification-early': 'Recordatorio temprano',
+		'notification-early-desc': 'X minutos antes de la tarea',
+		'notification-ontime': 'A tiempo',
+		'notification-ontime-desc': 'Momento exacto de la tarea',
+		'notification-deadline-early': 'Plazo — minutos antes',
+		'notification-deadline-early-desc': 'X minutos antes del plazo',
+		'notification-deadline-now': 'Plazo — ahora',
+		'notification-deadline-now-desc': 'Hora exacta del plazo',
+		'notification-deadline-today': 'Plazo — hoy',
+		'notification-deadline-today-desc': 'El plazo es hoy (sin hora)',
+		'notification-deadline-days': 'Plazo — días',
+		'notification-deadline-days-desc': 'Faltan X días para el plazo',
+		'scan-folders': 'Carpetas para escanear',
+		'scan-folders-desc': 'Carpetas para buscar tareas (separadas por coma)',
+		'no-folders-selected': 'Ninguna carpeta seleccionada (vault entero)',
+		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
+		'advanced-folder-mode': 'Modo avanzado de selección de carpetas',
+		'advanced-folder-mode-desc': 'Use el selector avanzado con árbol de carpetas (desactive para modo simple con texto)'
+	},
+	'fr': {
+		'view-title': 'Planificateur de Blocs de Temps',
+		'day-view': 'Vue Journalière',
+		'week-view': 'Vue Hebdomadaire',
+		'today': 'Aujourd\'hui',
+		'unscheduled-tasks': 'Tâches sans horaire défini',
+		'no-tasks': 'Aucune tâche programmée',
+		'create-task': 'Créer une tâche',
+		'hours': 'Heures',
+		'priority-high': 'Haute',
+		'priority-medium': 'Moyenne',
+		'priority-low': 'Basse',
+		'task-completed': 'Tâche terminée',
+		'task-uncompleted': 'Tâche non terminée',
+		// Dias da semana
+		'sunday': 'Dim',
+		'monday': 'Lun',
+		'tuesday': 'Mar',
+		'wednesday': 'Mer',
+		'thursday': 'Jeu',
+		'friday': 'Ven',
+		'saturday': 'Sam',
+		// Configurações
+		'settings-agenda': 'Agenda',
+		'settings-appearance': 'Apparence',
+		'settings-notifications': 'Notifications',
+		'settings-deadlines': 'Échéances',
+		'settings-texts': 'Textes',
+		'start-hour': 'Heure de début',
+		'start-hour-desc': 'Heure quand l\'agenda commence',
+		'end-hour': 'Heure de fin',
+		'end-hour-desc': 'Heure quand l\'agenda se termine',
+		'default-view': 'Vue par défaut',
+		'default-view-desc': 'Vue par défaut à l\'ouverture de l\'agenda',
+		'use-obsidian-theme': 'Utiliser le thème Obsidian',
+		'use-obsidian-theme-desc': 'Utiliser les couleurs de votre thème Obsidian actuel',
+		'enable-notifications': 'Activer les notifications',
+		'enable-notifications-desc': 'Afficher les notifications de bureau pour les tâches',
+		'notification-early': 'Rappel anticipé',
+		'notification-early-desc': 'X minutes avant la tâche',
+		'notification-ontime': 'À l\'heure',
+		'notification-ontime-desc': 'Moment exact de la tâche',
+		'notification-deadline-early': 'Échéance — minutes avant',
+		'notification-deadline-early-desc': 'X minutes avant l\'échéance',
+		'notification-deadline-now': 'Échéance — maintenant',
+		'notification-deadline-now-desc': 'Heure exacte de l\'échéance',
+		'notification-deadline-today': 'Échéance — aujourd\'hui',
+		'notification-deadline-today-desc': 'L\'échéance est aujourd\'hui (sans heure)',
+		'notification-deadline-days': 'Échéance — jours',
+		'notification-deadline-days-desc': 'X jours jusqu\'à l\'échéance',
+		'scan-folders': 'Dossiers à scanner',
+		'scan-folders-desc': 'Dossiers pour chercher les tâches (séparés par virgule)',
+		'no-folders-selected': 'Aucun dossier sélectionné (vault entier)',
+		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
+		'advanced-folder-mode': 'Mode avancé de sélection de dossiers',
+		'advanced-folder-mode-desc': 'Utilisez le sélecteur avancé avec arborescence (désactivez pour mode simple avec texte)'
+	},
+	'de': {
+		'view-title': 'Block-Zeitplaner',
+		'day-view': 'Tagesansicht',
+		'week-view': 'Wochenansicht',
+		'today': 'Heute',
+		'unscheduled-tasks': 'Aufgaben ohne definierte Uhrzeit',
+		'no-tasks': 'Keine Aufgaben geplant',
+		'create-task': 'Aufgabe erstellen',
+		'hours': 'Stunden',
+		'priority-high': 'Hoch',
+		'priority-medium': 'Mittel',
+		'priority-low': 'Niedrig',
+		'task-completed': 'Aufgabe erledigt',
+		'task-uncompleted': 'Aufgabe nicht erledigt',
+		// Dias da semana
+		'sunday': 'So',
+		'monday': 'Mo',
+		'tuesday': 'Di',
+		'wednesday': 'Mi',
+		'thursday': 'Do',
+		'friday': 'Fr',
+		'saturday': 'Sa',
+		// Configurações
+		'settings-agenda': 'Agenda',
+		'settings-appearance': 'Erscheinungsbild',
+		'settings-notifications': 'Benachrichtigungen',
+		'settings-deadlines': 'Fristen',
+		'settings-texts': 'Texte',
+		'start-hour': 'Startzeit',
+		'start-hour-desc': 'Stunde wann die Agenda beginnt',
+		'end-hour': 'Endzeit',
+		'end-hour-desc': 'Stunde wann die Agenda endet',
+		'default-view': 'Standardansicht',
+		'default-view-desc': 'Standardansicht beim Öffnen der Agenda',
+		'use-obsidian-theme': 'Obsidian-Theme verwenden',
+		'use-obsidian-theme-desc': 'Farben Ihres aktuellen Obsidian-Themes verwenden',
+		'enable-notifications': 'Benachrichtigungen aktivieren',
+		'enable-notifications-desc': 'Desktop-Benachrichtigungen für Aufgaben anzeigen',
+		'notification-early': 'Frühe Erinnerung',
+		'notification-early-desc': 'X Minuten vor der Aufgabe',
+		'notification-ontime': 'Pünktlich',
+		'notification-ontime-desc': 'Exakter Zeitpunkt der Aufgabe',
+		'notification-deadline-early': 'Frist — Minuten vorher',
+		'notification-deadline-early-desc': 'X Minuten vor der Frist',
+		'notification-deadline-now': 'Frist — jetzt',
+		'notification-deadline-now-desc': 'Exakte Fristzeit',
+		'notification-deadline-today': 'Frist — heute',
+		'notification-deadline-today-desc': 'Frist ist heute (keine Zeit)',
+		'notification-deadline-days': 'Frist — Tage',
+		'notification-deadline-days-desc': 'X Tage bis zur Frist',
+		'scan-folders': 'Ordner scannen',
+		'scan-folders-desc': 'Ordner für Aufgaben (Komma getrennt)',
+		'no-folders-selected': 'Keine Ordner ausgewählt (ganzer Vault)',
+		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
+		'advanced-folder-mode': 'Erweiterter Ordnerauswahlmodus',
+		'advanced-folder-mode-desc': 'Verwenden Sie erweiterten Ordnerauswahl mit Baumansicht (deaktivieren für einfachen Textmodus)'
+	},
+	'it': {
+		'view-title': 'Programmatore di Blocchi di Tempo',
+		'day-view': 'Vista Giornaliera',
+		'week-view': 'Vista Settimanale',
+		'today': 'Oggi',
+		'unscheduled-tasks': 'Attività senza orario definito',
+		'no-tasks': 'Nessuna attività programmata',
+		'create-task': 'Crea attività',
+		'hours': 'Ore',
+		'priority-high': 'Alta',
+		'priority-medium': 'Media',
+		'priority-low': 'Bassa',
+		'task-completed': 'Attività completata',
+		'task-uncompleted': 'Attività non completata',
+		// Dias da semana
+		'sunday': 'Dom',
+		'monday': 'Lun',
+		'tuesday': 'Mar',
+		'wednesday': 'Mer',
+		'thursday': 'Gio',
+		'friday': 'Ven',
+		'saturday': 'Sab'
+	},
+	'ja': {
+		'view-title': 'ブロックタイムスケジューラー',
+		'day-view': '日表示',
+		'week-view': '週表示',
+		'today': '今日',
+		'unscheduled-tasks': '時間未定のタスク',
+		'no-tasks': 'スケジュールされたタスクはありません',
+		'create-task': 'タスク作成',
+		'hours': '時間',
+		'priority-high': '高',
+		'priority-medium': '中',
+		'priority-low': '低',
+		'task-completed': 'タスク完了',
+		'task-uncompleted': 'タスク未完了',
+		// Dias da semana
+		'sunday': '日',
+		'monday': '月',
+		'tuesday': '火',
+		'wednesday': '水',
+		'thursday': '木',
+		'friday': '金',
+		'saturday': '土'
+	},
+	'zh': {
+		'view-title': '时间块调度器',
+		'day-view': '日视图',
+		'week-view': '周视图',
+		'today': '今天',
+		'unscheduled-tasks': '未定义时间的任务',
+		'no-tasks': '没有安排的任务',
+		'create-task': '创建任务',
+		'hours': '小时',
+		'priority-high': '高',
+		'priority-medium': '中',
+		'priority-low': '低',
+		'task-completed': '任务已完成',
+		'task-uncompleted': '任务未完成',
+		// Dias da semana
+		'sunday': '周日',
+		'monday': '周一',
+		'tuesday': '周二',
+		'wednesday': '周三',
+		'thursday': '周四',
+		'friday': '周五',
+		'saturday': '周六'
+	},
+	'ru': {
+		'view-title': 'Планировщик временных блоков',
+		'day-view': 'Дневной вид',
+		'week-view': 'Недельный вид',
+		'today': 'Сегодня',
+		'unscheduled-tasks': 'Задачи без определенного времени',
+		'no-tasks': 'Нет запланированных задач',
+		'create-task': 'Создать задачу',
+		'hours': 'Часы',
+		'priority-high': 'Высокий',
+		'priority-medium': 'Средний',
+		'priority-low': 'Низкий',
+		'task-completed': 'Задача выполнена',
+		'task-uncompleted': 'Задача не выполнена',
+		// Dias da semana
+		'sunday': 'Вс',
+		'monday': 'Пн',
+		'tuesday': 'Вт',
+		'wednesday': 'Ср',
+		'thursday': 'Чт',
+		'friday': 'Пт',
+		'saturday': 'Сб'
+	}
+};
+
+class I18n {
+	private locale: string;
+	private translations: Translations;
+
+	constructor(moment: any) {
+		// Detecta idioma do Obsidian
+		this.locale = moment.locale() || 'en';
+		
+		// Mapeamento de idiomas do moment para nossos códigos
+		const localeMap: Record<string, string> = {
+			'pt-br': 'pt',
+			'pt': 'pt',
+			'es': 'es',
+			'fr': 'fr',
+			'de': 'de',
+			'it': 'it',
+			'ja': 'ja',
+			'zh-cn': 'zh',
+			'zh': 'zh',
+			'ru': 'ru'
+		};
+
+		this.locale = localeMap[this.locale.toLowerCase()] || 'en';
+		this.translations = TRANSLATIONS;
+	}
+
+	t(key: string): string {
+		return this.translations[this.locale]?.[key] || this.translations['en'][key] || key;
+	}
+
+	getLocale(): string {
+		return this.locale;
+	}
+}
+
+// ============================================================================
 // CONSTANTES
 // ============================================================================
 
@@ -99,9 +560,13 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 	private firedNotifications: Set<string> = new Set();
 	private lastResetDate: string = "";
 	fileContentCache: Map<string, string> = new Map();
+	i18n: I18n;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Inicializa internacionalização
+		this.i18n = new I18n(window.moment);
 
 		// Registra a View customizada
 		this.registerView(
@@ -1132,7 +1597,7 @@ class BlockTimeView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Block Time Scheduler";
+		return this.plugin.i18n.t('view-title');
 	}
 
 	getIcon(): string {
@@ -1237,7 +1702,7 @@ class BlockTimeView extends ItemView {
 	private renderHeader(container: HTMLElement) {
 		const header = container.createDiv({ cls: "block-time-header" });
 
-		// Navegação de data
+		// Seção esquerda: Navegação de data
 		const nav = header.createDiv({ cls: "block-time-nav" });
 
 		const prevBtn = nav.createEl("button", { text: "◀", cls: "block-time-nav-btn" });
@@ -1250,18 +1715,21 @@ class BlockTimeView extends ItemView {
 		nextBtn.addEventListener("click", () => this.navigateDate(1));
 
 		// Botão Hoje
-		const todayBtn = nav.createEl("button", { text: "Hoje", cls: "block-time-today-btn" });
+		const todayBtn = nav.createEl("button", { text: this.plugin.i18n.t('today'), cls: "block-time-today-btn" });
 		todayBtn.addEventListener("click", () => {
 			this.currentDate = new Date();
 			this.render();
 		});
 
+		// Seção direita: Toggle de visualização e refresh
+		const controls = header.createDiv({ cls: "block-time-controls" });
+
 		// Toggle de visualização
-		const viewToggle = header.createDiv({ cls: "block-time-view-toggle" });
+		const viewToggle = controls.createDiv({ cls: "block-time-view-toggle" });
 		
 		const dayBtn = viewToggle.createEl("button", { 
-			text: "Dia", 
-			cls: `block-time-toggle-btn ${this.viewMode === "day" ? "active" : ""}`
+			text: this.plugin.i18n.t('day-view'), 
+			cls: `block-time-toggle-btn ${this.viewMode === "day" ? "active" : ""}` 
 		});
 		dayBtn.addEventListener("click", () => {
 			this.viewMode = "day";
@@ -1269,8 +1737,8 @@ class BlockTimeView extends ItemView {
 		});
 
 		const weekBtn = viewToggle.createEl("button", { 
-			text: "Semana", 
-			cls: `block-time-toggle-btn ${this.viewMode === "week" ? "active" : ""}`
+			text: this.plugin.i18n.t('week-view'), 
+			cls: `block-time-toggle-btn ${this.viewMode === "week" ? "active" : ""}` 
 		});
 		weekBtn.addEventListener("click", () => {
 			this.viewMode = "week";
@@ -1278,27 +1746,27 @@ class BlockTimeView extends ItemView {
 		});
 
 		// Botão Refresh
-		const refreshBtn = header.createEl("button", { text: "🔄", cls: "block-time-refresh-btn" });
+		const refreshBtn = controls.createEl("button", { text: "🔄", cls: "block-time-refresh-btn" });
 		refreshBtn.addEventListener("click", () => this.render());
 	}
 
 	private updateDateDisplay(element: HTMLElement) {
-		const options: Intl.DateTimeFormatOptions = {
-			weekday: "long",
-			year: "numeric",
-			month: "long",
-			day: "numeric"
-		};
-
-		if (this.viewMode === "week") {
-			const startOfWeek = this.getStartOfWeek(this.currentDate);
-			const endOfWeek = new Date(startOfWeek);
-			endOfWeek.setDate(endOfWeek.getDate() + 6);
-
-			element.textContent = `${startOfWeek.toLocaleDateString("pt-BR", { day: "numeric", month: "short" })} - ${endOfWeek.toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}`;
-		} else {
-			element.textContent = this.currentDate.toLocaleDateString("pt-BR", options);
-		}
+		const dayNames = [
+			this.plugin.i18n.t('sunday'),
+			this.plugin.i18n.t('monday'),
+			this.plugin.i18n.t('tuesday'),
+			this.plugin.i18n.t('wednesday'),
+			this.plugin.i18n.t('thursday'),
+			this.plugin.i18n.t('friday'),
+			this.plugin.i18n.t('saturday')
+		];
+		
+		const dayName = dayNames[this.currentDate.getDay()];
+		const date = this.currentDate.getDate();
+		const month = this.currentDate.toLocaleDateString(this.plugin.i18n.getLocale(), { month: 'long' });
+		const year = this.currentDate.getFullYear();
+		
+		element.textContent = `${dayName}, ${date} de ${month} de ${year}`;
 	}
 
 	private async renderDayView(container: HTMLElement) {
@@ -1370,7 +1838,15 @@ class BlockTimeView extends ItemView {
 		const daysHeader = grid.createDiv({ cls: "block-time-days-header" });
 		daysHeader.createDiv({ cls: "block-time-corner" }); // Canto vazio
 
-		const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+		const dayNames = [
+			this.plugin.i18n.t('sunday'),
+			this.plugin.i18n.t('monday'),
+			this.plugin.i18n.t('tuesday'),
+			this.plugin.i18n.t('wednesday'),
+			this.plugin.i18n.t('thursday'),
+			this.plugin.i18n.t('friday'),
+			this.plugin.i18n.t('saturday')
+		];
 		for (let d = 0; d < 7; d++) {
 			const dayDate = new Date(startOfWeek);
 			dayDate.setDate(dayDate.getDate() + d);
@@ -1524,7 +2000,7 @@ class BlockTimeView extends ItemView {
 
 	private renderUnscheduledTasks(container: HTMLElement, tasks: ParsedTask[]) {
 		const section = container.createDiv({ cls: "block-time-unscheduled" });
-		section.createEl("h4", { text: "📋 Tarefas sem horário definido" });
+		section.createEl("h4", { text: this.plugin.i18n.t('unscheduled-tasks') });
 
 		const list = section.createEl("ul", { cls: "block-time-unscheduled-list" });
 		for (const task of tasks) {
@@ -1665,6 +2141,72 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	// ============================================================================
+	// MÉTODOS UTILITÁRIOS
+	// ============================================================================
+
+	private getAllFolders(): Set<string> {
+		const folders = new Set<string>();
+		const files = this.app.vault.getFiles();
+		
+		for (const file of files) {
+			const parts = file.path.split("/");
+			let currentPath = "";
+			
+			for (const part of parts) {
+				if (part === file.name) continue; // Ignora o nome do arquivo
+				currentPath = currentPath ? `${currentPath}/${part}` : part;
+				folders.add(currentPath);
+			}
+		}
+		
+		return folders;
+	}
+
+	private buildFolderTree(files: TFile[]): FolderNode[] {
+		const nodeMap = new Map<string, FolderNode>();
+
+		// Inicializa todos os nós
+		for (const file of files) {
+			const parts = file.path.split("/");
+			let currentPath = "";
+			
+			for (const part of parts) {
+				if (part === file.name) continue; // Ignora o nome do arquivo
+				
+				const parentPath = currentPath;
+				currentPath = parentPath ? `${parentPath}/${part}` : part;
+
+				if (!nodeMap.has(currentPath)) {
+					nodeMap.set(currentPath, {
+						name: part,
+						path: currentPath,
+						children: []
+					});
+				}
+
+				// Adiciona como filho do pai
+				if (parentPath && nodeMap.has(parentPath)) {
+					const parentNode = nodeMap.get(parentPath)!;
+					const currentNode = nodeMap.get(currentPath)!;
+					if (!parentNode.children.includes(currentNode)) {
+						parentNode.children.push(currentNode);
+					}
+				}
+			}
+		}
+
+		// Retorna apenas os nós raiz
+		return Array.from(nodeMap.values()).filter(node => !node.path.includes("/"));
+	}
+
+	private parseSelectedFolders(): string[] {
+		return this.plugin.settings.scanFolders
+			.split(",")
+			.map(f => f.trim().replace(/^\/+|\/+$/g, ""))
+			.filter(f => f.length > 0);
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -1672,12 +2214,12 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		// ══════════════════════════════════════════════
 		// SEÇÃO 1: AGENDA
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h1", { text: "Block Time Scheduler" });
-		containerEl.createEl("h2", { text: "📅 Agenda" });
+		containerEl.createEl("h1", { text: this.plugin.i18n.t('view-title') });
+		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-agenda') });
 
 		new Setting(containerEl)
-			.setName("Hora de início")
-			.setDesc("Primeira hora exibida na grade")
+			.setName(this.plugin.i18n.t('start-hour'))
+			.setDesc(this.plugin.i18n.t('start-hour-desc'))
 			.addSlider(slider => slider
 				.setLimits(0, 12, 1)
 				.setValue(this.plugin.settings.startHour)
@@ -1688,8 +2230,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Hora de término")
-			.setDesc("Última hora exibida na grade")
+			.setName(this.plugin.i18n.t('end-hour'))
+			.setDesc(this.plugin.i18n.t('end-hour-desc'))
 			.addSlider(slider => slider
 				.setLimits(18, 24, 1)
 				.setValue(this.plugin.settings.endHour)
@@ -1744,7 +2286,7 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		// ══════════════════════════════════════════════
 		// SEÇÃO 2: APARÊNCIA
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h2", { text: "🎨 Aparência" });
+		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-appearance') });
 
 		new Setting(containerEl)
 			.setName("Usar tema do Obsidian")
@@ -1760,9 +2302,9 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		// ══════════════════════════════════════════════
-		// SEÇÃO 3: NOTIFICAÇÕES DE HORÁRIO
+		// SEÇÃO 3: NOTIFICAÇÕES
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h2", { text: "🔔 Notificações de Horário" });
+		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-notifications') });
 
 		new Setting(containerEl)
 			.setName("Ativar notificações")
@@ -1802,9 +2344,9 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		// ══════════════════════════════════════════════
-		// SEÇÃO 4: LEMBRETES DE PRAZO
+		// SEÇÃO 4: PRAZOS
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h2", { text: "⚠️ Lembretes de Prazo" });
+		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-deadlines') });
 
 		new Setting(containerEl)
 			.setName("Ativar lembretes de prazo")
@@ -1852,10 +2394,10 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		// ══════════════════════════════════════════════
-		// SEÇÃO 5: PERSONALIZAR TEXTOS (collapsible)
+		// SEÇÃO 5: TEXTOS
 		// ══════════════════════════════════════════════
 		const detailsEl = containerEl.createEl("details", { cls: "block-time-settings-details" });
-		detailsEl.createEl("summary", { text: "✏️ Personalizar textos das notificações" });
+		detailsEl.createEl("summary", { text: this.plugin.i18n.t('settings-texts') });
 
 		const detailsContent = detailsEl.createDiv({ cls: "block-time-settings-details-content" });
 		detailsContent.createEl("p", {
@@ -1886,10 +2428,67 @@ class BlockTimeSettingTab extends PluginSettingTab {
 	}
 
 	private renderFolderPicker(containerEl: HTMLElement) {
-		const selectedFolders = this.plugin.settings.scanFolders
-			.split(",")
-			.map(f => f.trim().replace(/^\/+|\/+$/g, ""))
-			.filter(f => f.length > 0);
+		// Toggle para escolher entre simples e avançado
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('advanced-folder-mode'))
+			.setDesc(this.plugin.i18n.t('advanced-folder-mode-desc'))
+			.addToggle(toggle => toggle
+				.setValue(false) // Default: modo simples
+				.onChange(async (value) => {
+					// Re-renderiza com o modo selecionado
+					this.renderFolderPickerWithMode(pickerContainer, value);
+				}));
+
+		// Container para o seletor escolhido
+		const pickerContainer = containerEl.createDiv({ cls: "block-time-folder-picker-container" });
+		this.renderFolderPickerWithMode(pickerContainer, false); // Inicia com modo simples
+	}
+
+	private renderFolderPickerWithMode(containerEl: HTMLElement, advancedMode: boolean) {
+		// Limpa apenas o container do seletor, não o container principal
+		containerEl.empty();
+
+		if (advancedMode) {
+			// Modo avançado (antigo implementação)
+			this.renderAdvancedFolderPicker(containerEl);
+		} else {
+			// Modo simples (padrão Obsidian)
+			this.renderSimpleFolderPicker(containerEl);
+		}
+	}
+
+	private renderSimpleFolderPicker(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('scan-folders'))
+			.setDesc(this.plugin.i18n.t('scan-folders-desc'))
+			.addText(text => {
+				// Usa o método utilitário da classe
+				const folders = this.getAllFolders();
+				const folderSuggest = new FolderSuggest(this.app, text.inputEl, folders);
+				
+				// Registra callback para quando uma pasta for selecionada
+				folderSuggest.onSelect((folder: string, evt: MouseEvent | KeyboardEvent) => {
+					const currentValue = text.getValue();
+					const foldersList = currentValue.split(",").map(f => f.trim()).filter(f => f);
+					
+					if (!foldersList.includes(folder)) {
+						foldersList.push(folder);
+						text.setValue(foldersList.join(", "));
+					}
+				});
+				
+				return text
+					.setPlaceholder("Exemplo: pasta1, pasta2/subpasta")
+					.setValue(this.plugin.settings.scanFolders)
+					.onChange(async (value) => {
+						this.plugin.settings.scanFolders = value;
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	private renderAdvancedFolderPicker(containerEl: HTMLElement) {
+		const selectedFolders = this.parseSelectedFolders();
 
 		const pickerEl = containerEl.createDiv({ cls: "block-time-folder-picker" });
 
@@ -1899,7 +2498,7 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		const renderTags = () => {
 			tagsEl.empty();
 			if (selectedFolders.length === 0) {
-				tagsEl.createSpan({ text: "Nenhuma pasta selecionada (vault inteiro)", cls: "block-time-folder-hint" });
+				tagsEl.createSpan({ text: this.plugin.i18n.t('no-folders-selected'), cls: "block-time-folder-hint" });
 				return;
 			}
 			for (const folder of selectedFolders) {
@@ -1928,126 +2527,102 @@ class BlockTimeSettingTab extends PluginSettingTab {
 
 		// Árvore de pastas
 		const treeEl = pickerEl.createDiv({ cls: "block-time-folder-tree" });
-		treeEl.style.display = "none";
+		treeEl.style.display = "block"; // Mostra imediatamente no modo avançado
 
 		// Estado de colapso (inicia tudo colapsado)
 		const expandedSet: Set<string> = new Set();
 
-		interface FolderNode {
-			name: string;
-			path: string;
-			children: FolderNode[];
-		}
+		const renderNode = (node: FolderNode, depth: number = 0, filterQuery: string = "") => {
+			// Filtra pela busca se houver
+			if (filterQuery && !node.name.toLowerCase().includes(filterQuery.toLowerCase())) {
+				return;
+			}
 
-		const buildTree = (): FolderNode[] => {
-			const root: FolderNode[] = [];
-			const recurse = (parent: TFolder): FolderNode[] => {
-				const nodes: FolderNode[] = [];
-				const sorted = [...parent.children].sort((a, b) => a.name.localeCompare(b.name));
-				for (const child of sorted) {
-					if (child instanceof TFolder && !child.path.startsWith(".")) {
-						nodes.push({
-							name: child.name,
-							path: child.path,
-							children: recurse(child)
-						});
+			const rowEl = treeEl.createDiv({ cls: "block-time-folder-row" });
+			rowEl.style.paddingLeft = `${depth * 16}px`;
+
+			// Checkbox
+			const cb = rowEl.createEl("input", { type: "checkbox", cls: "block-time-folder-cb" });
+			cb.checked = selectedFolders.includes(node.path);
+			cb.addEventListener("change", async () => {
+				if (cb.checked) {
+					if (!selectedFolders.includes(node.path)) {
+						selectedFolders.push(node.path);
+					}
+				} else {
+					const index = selectedFolders.indexOf(node.path);
+					if (index > -1) {
+						selectedFolders.splice(index, 1);
 					}
 				}
-				return nodes;
-			};
-			return recurse(this.app.vault.getRoot());
+				this.plugin.settings.scanFolders = selectedFolders.join(", ");
+				await this.plugin.saveSettings();
+				renderTags();
+			});
+
+			// Setas para expandir/colapsar
+			if (node.children.length > 0) {
+				const arrow = rowEl.createSpan({ cls: "block-time-folder-arrow has-children" });
+				arrow.textContent = expandedSet.has(node.path) ? "▼" : "▶";
+				arrow.addEventListener("click", (e) => {
+					e.stopPropagation();
+					if (expandedSet.has(node.path)) {
+						expandedSet.delete(node.path);
+					} else {
+						expandedSet.add(node.path);
+					}
+					renderTree();
+				});
+			}
+
+			// Nome da pasta
+			const label = rowEl.createSpan({ cls: "block-time-folder-label" });
+			label.textContent = node.name;
+			rowEl.addEventListener("click", () => {
+				cb.checked = !cb.checked;
+				cb.dispatchEvent(new Event("change"));
+			});
+
+			// Renderiza filhos se expandido
+			if (node.children.length > 0 && expandedSet.has(node.path)) {
+				for (const child of node.children) {
+					renderNode(child, depth + 1, filterQuery);
+				}
+			}
 		};
 
-		const matchesFilter = (node: FolderNode, filter: string): boolean => {
-			if (node.path.toLowerCase().includes(filter)) return true;
-			return node.children.some(c => matchesFilter(c, filter));
-		};
-
-		const renderTree = (filter?: string) => {
+		const renderTree = (filterQuery: string = "") => {
 			treeEl.empty();
-			const tree = buildTree();
-			const lowerFilter = (filter || "").toLowerCase();
+			const allFiles = this.app.vault.getFiles();
+			const folderTree = this.buildFolderTree(allFiles);
 
-			const renderNodes = (nodes: FolderNode[], depth: number) => {
-				for (const node of nodes) {
-					if (lowerFilter && !matchesFilter(node, lowerFilter)) continue;
-
-					const hasChildren = node.children.length > 0;
-					const isExpanded = lowerFilter ? true : expandedSet.has(node.path);
-					const isSelected = selectedFolders.includes(node.path);
-
-					const row = treeEl.createDiv({ cls: `block-time-folder-row ${isSelected ? "is-selected" : ""}` });
-					row.style.paddingLeft = `${8 + depth * 20}px`;
-
-					// Seta de colapso
-					const arrow = row.createSpan({ cls: "block-time-folder-arrow" });
-					if (hasChildren) {
-						arrow.textContent = isExpanded ? "▼" : "▶";
-						arrow.addClass("has-children");
-						arrow.addEventListener("click", (e) => {
-							e.stopPropagation();
-							if (expandedSet.has(node.path)) {
-								expandedSet.delete(node.path);
-							} else {
-								expandedSet.add(node.path);
-							}
-							renderTree(filter);
-						});
-					}
-
-					// Checkbox real
-					const cb = row.createEl("input", { type: "checkbox", cls: "block-time-folder-cb" });
-					cb.checked = isSelected;
-					cb.addEventListener("click", async (e) => {
-						e.stopPropagation();
-						if (isSelected) {
-							selectedFolders.splice(selectedFolders.indexOf(node.path), 1);
-						} else {
-							selectedFolders.push(node.path);
-						}
-						this.plugin.settings.scanFolders = selectedFolders.join(", ");
-						await this.plugin.saveSettings();
-						renderTags();
-						renderTree(filter);
-					});
-
-					// Nome da pasta
-					const label = row.createSpan({ text: node.name, cls: "block-time-folder-label" });
-					label.addEventListener("click", async () => {
-						if (isSelected) {
-							selectedFolders.splice(selectedFolders.indexOf(node.path), 1);
-						} else {
-							selectedFolders.push(node.path);
-						}
-						this.plugin.settings.scanFolders = selectedFolders.join(", ");
-						await this.plugin.saveSettings();
-						renderTags();
-						renderTree(filter);
-					});
-
-					// Renderiza filhos se expandido
-					if (hasChildren && isExpanded) {
-						renderNodes(node.children, depth + 1);
-					}
-				}
-			};
-
-			renderNodes(tree, 0);
+			for (const node of folderTree) {
+				renderNode(node, 0, filterQuery);
+			}
 		};
 
-		searchInput.addEventListener("focus", () => {
+		// Busca
+		searchInput.addEventListener("input", () => {
+			const query = searchInput.value.toLowerCase().trim();
+			// Sempre mostra a árvore no modo avançado, busca filtra os resultados
+			treeEl.style.display = "block";
+			renderTree(query);
+		});
+
+		// Foca no campo ao clicar no picker
+		pickerEl.addEventListener("click", () => {
+			searchInput.focus();
 			treeEl.style.display = "block";
 			renderTree(searchInput.value);
 		});
 
-		searchInput.addEventListener("input", () => {
-			renderTree(searchInput.value);
-		});
-
+		// Fecha ao clicar fora
 		document.addEventListener("click", (e) => {
 			if (!pickerEl.contains(e.target as Node)) {
 				treeEl.style.display = "none";
 			}
 		});
+
+		renderTree();
 	}
 }
