@@ -505,21 +505,206 @@ class TaskParser {
 
 	async getTasksForDate(targetDate: Date): Promise<ParsedTask[]> {
 		const allTasks = await this.getAllTasks();
-		return allTasks.filter(task => {
-			if (!task.date) return false;
-			return this.isSameDay(task.date, targetDate);
-		});
+		const tasks: ParsedTask[] = [];
+		const seenTaskKeys = new Set<string>();
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		// 1. Adiciona TODAS as tarefas existentes com data explícita (incluindo completadas)
+		// SEMPRE adiciona tasks com data explícita, sem filtros
+		for (const task of allTasks) {
+			// Verifica se tem data explícita OU data de conclusão
+			const hasExplicitDate = task.date && this.isSameDay(task.date, targetDate);
+			const hasDoneDate = this.parseDoneDate(task.rawLine) && this.isSameDay(this.parseDoneDate(task.rawLine)!, targetDate);
+			
+			if (hasExplicitDate || hasDoneDate) {
+				// Usa linha completa como chave para distinguir recorrências diferentes
+				const taskKey = `${task.rawLine.trim()}_${task.filePath}`;
+				tasks.push(task);
+				seenTaskKeys.add(taskKey);
+			}
+		}
+
+		// 2. Expande recorrências para preencher calendário completo
+		for (const task of allTasks) {
+			if (!task.recurrence) continue;
+
+			// Usa texto base (sem checkbox e data de conclusão) como chave
+			const baseTaskText = task.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+			const taskKey = `${baseTaskText}_${task.filePath}`;
+			
+			// Pula se já existe uma task com este texto base neste dia
+			if (seenTaskKeys.has(taskKey)) continue;
+
+			// Verifica se existe uma task pendente (não completada) para esta recorrência
+			// Se só existem versões completadas, a recorrência foi encerrada
+			const hasPendingTask = allTasks.some(t => 
+				!t.completed && 
+				t.recurrence &&
+				t.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim() === baseTaskText
+			);
+
+			// Verifica se a recorrência deve aparecer nesta data
+			if (this.shouldRecurOnDate(task, targetDate)) {
+				// Busca se existe versão completada nesta data específica
+				const completedVersion = await this.findCompletedTask(task, targetDate);
+				
+				if (completedVersion) {
+					// Se existe versão completada, mostra apenas ela
+					tasks.push(completedVersion);
+					seenTaskKeys.add(taskKey);
+				} else if (hasPendingTask && targetDate >= today) {
+					// Se existe task pendente E é data futura, gera ocorrência prevista
+					const generatedTask = this.createRecurrenceInstance(task, targetDate);
+					tasks.push(generatedTask);
+					seenTaskKeys.add(taskKey);
+				}
+				// Se não existe task pendente, não gera ocorrências futuras (recorrência encerrada)
+			}
+		}
+
+		return tasks;
+	}
+
+	private shouldRecurOnDate(task: ParsedTask, targetDate: Date): boolean {
+		if (!task.recurrence) return false;
+		const recurrenceRule = task.recurrence.toLowerCase().trim();
+		
+		// Data de início da recorrência
+		let startDate = task.date;
+		if (!startDate) {
+			// Se não tem data, usa 30 dias atrás como referência
+			startDate = new Date();
+			startDate.setDate(startDate.getDate() - 30);
+		}
+
+		// Não aparece antes da data de início
+		if (targetDate < startDate) return false;
+
+		// Every day
+		if (/every\s+day/i.test(recurrenceRule)) return true;
+		
+		// Every week
+		if (/every\s+week/i.test(recurrenceRule)) {
+			return startDate.getDay() === targetDate.getDay();
+		}
+
+		// Every month (sem número)
+		if (/every\s+month/i.test(recurrenceRule)) {
+			return startDate.getDate() === targetDate.getDate();
+		}
+
+		// Every N days/weeks/months/years
+		const nMatch = recurrenceRule.match(/every\s+(\d+)\s+(day|week|month|year)s?/i);
+		if (nMatch) {
+			const n = parseInt(nMatch[1]);
+			const unit = nMatch[2].toLowerCase();
+			const diffDays = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+			
+			if (unit === "day" && diffDays >= 0 && diffDays % n === 0) return true;
+			if (unit === "week" && diffDays >= 0 && diffDays % (n * 7) === 0) return true;
+			if (unit === "month") {
+				const monthsDiff = (targetDate.getFullYear() - startDate.getFullYear()) * 12 + 
+								(targetDate.getMonth() - startDate.getMonth());
+				return monthsDiff >= 0 && monthsDiff % n === 0 && 
+					   targetDate.getDate() === startDate.getDate();
+			}
+			if (unit === "year") {
+				const yearsDiff = targetDate.getFullYear() - startDate.getFullYear();
+				return yearsDiff >= 0 && yearsDiff % n === 0 &&
+					   targetDate.getMonth() === startDate.getMonth() &&
+					   targetDate.getDate() === startDate.getDate();
+			}
+		}
+
+		// Every weekday
+		if (/every\s+weekday/i.test(recurrenceRule)) {
+			const dayOfWeek = targetDate.getDay();
+			return dayOfWeek >= 1 && dayOfWeek <= 5;
+		}
+
+		// Every Monday/Tuesday/etc
+		const dayNames: Record<string, number> = {
+			sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+			thursday: 4, friday: 5, saturday: 6
+		};
+		const dayMatch = recurrenceRule.match(/every\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)/i);
+		if (dayMatch) {
+			const targetDay = dayNames[dayMatch[1].toLowerCase()];
+			return targetDate.getDay() === targetDay;
+		}
+
+		return false;
+	}
+
+	private async findCompletedTask(task: ParsedTask, targetDate: Date): Promise<ParsedTask | null> {
+		try {
+			const file = this.app.vault.getAbstractFileByPath(task.filePath);
+			if (!(file instanceof TFile)) return null;
+
+			const content = await this.readFile(file);
+			const lines = content.split("\n");
+			const targetDateStr = this.formatDate(targetDate);
+
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i];
+				
+				const taskMatch = line.match(/^(\s*)-\s*\[x\]\s*(.*)$/);
+				if (!taskMatch) continue;
+
+				const completedTaskText = taskMatch[2];
+				
+				// Compara estrutura (remove checkbox e data de conclusão)
+				const originalText = task.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+				const completedText = completedTaskText.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+				
+				if (originalText === completedText) {
+					const doneDateMatch = line.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+					if (doneDateMatch && doneDateMatch[1] === targetDateStr) {
+						return this.parseLine(line, task.filePath, i + 1);
+					}
+				}
+			}
+
+			return null;
+		} catch (error) {
+			console.warn("[BlockTime] Erro ao buscar tarefa completada:", error);
+			return null;
+		}
+	}
+
+	private createRecurrenceInstance(task: ParsedTask, targetDate: Date): ParsedTask {
+		return {
+			...task,
+			date: new Date(targetDate),
+			completed: false,
+			line: -1 // Indica que é gerada
+		};
 	}
 
 	async getTasksForWeek(startDate: Date): Promise<ParsedTask[]> {
-		const allTasks = await this.getAllTasks();
-		const endDate = new Date(startDate);
-		endDate.setDate(endDate.getDate() + 7);
+		const tasks: ParsedTask[] = [];
+		const seenTaskKeys = new Set<string>();
 
-		return allTasks.filter(task => {
-			if (!task.date) return false;
-			return task.date >= startDate && task.date < endDate;
-		});
+		// Processa cada dia da semana
+		for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+			const currentDay = new Date(startDate);
+			currentDay.setDate(startDate.getDate() + dayOffset);
+
+			// Usa a mesma lógica do getTasksForDate para este dia específico
+			const dayTasks = await this.getTasksForDate(currentDay);
+			
+			// Adiciona as tasks do dia, evitando duplicatas na semana
+			for (const task of dayTasks) {
+				const taskKey = `${task.text.trim()}_${task.filePath}_${currentDay.toDateString()}`;
+				if (!seenTaskKeys.has(taskKey)) {
+					tasks.push(task);
+					seenTaskKeys.add(taskKey);
+				}
+			}
+		}
+
+		return tasks;
 	}
 
 	private parseLine(line: string, filePath: string, lineNumber: number): ParsedTask | null {
@@ -536,12 +721,14 @@ class TaskParser {
 		const priority = this.parsePriority(taskText);
 		const recurrence = this.parseRecurrence(taskText);
 
-		// Task com 🔁 mas sem data = tarefa diária (aparece hoje), somente se não completada
+		// Task com sem data = tarefa diária (aparece hoje), somente se não completada
 		let taskDate = dateInfo.date;
 		if (!taskDate && recurrence && !completed) {
 			taskDate = new Date();
 		} else if (!taskDate && recurrence && completed) {
-			taskDate = null;
+			// Se está completada e tem ✅ data, usa essa data
+			const doneDate = this.parseDoneDate(line);
+			taskDate = doneDate;
 		}
 
 		// Remove marcadores do texto para exibição limpa
@@ -1133,8 +1320,29 @@ class BlockTimeView extends ItemView {
 
 		// Lista de tarefas sem horário
 		const unscheduledTasks = tasks.filter(t => !t.startTime);
-		if (unscheduledTasks.length > 0) {
-			this.renderUnscheduledTasks(container, unscheduledTasks);
+		
+		// Remove duplicatas de recorrências sem hora - mantém apenas uma instância por recorrência
+		const uniqueUnscheduledTasks: ParsedTask[] = [];
+		const seenRecurrenceKeys = new Set<string>();
+		
+		for (const task of unscheduledTasks) {
+			if (task.recurrence) {
+				// Usa texto base como chave para identificar recorrências
+				const baseTaskText = task.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+				const recurrenceKey = `${baseTaskText}_${task.filePath}`;
+				
+				if (!seenRecurrenceKeys.has(recurrenceKey)) {
+					seenRecurrenceKeys.add(recurrenceKey);
+					uniqueUnscheduledTasks.push(task);
+				}
+			} else {
+				// Tasks não recorrentes sempre são adicionadas
+				uniqueUnscheduledTasks.push(task);
+			}
+		}
+		
+		if (uniqueUnscheduledTasks.length > 0) {
+			this.renderUnscheduledTasks(container, uniqueUnscheduledTasks);
 		}
 	}
 
@@ -1197,6 +1405,33 @@ class BlockTimeView extends ItemView {
 					this.renderTaskBlock(dayColumn, task, startHour);
 				}
 			}
+		}
+
+		// Lista de tarefas sem horário para toda a semana (apenas pendentes)
+		const unscheduledTasks = tasks.filter(t => !t.startTime && !t.completed);
+		
+		// Remove duplicatas de recorrências sem hora - mantém apenas uma instância por recorrência
+		const uniqueUnscheduledTasks: ParsedTask[] = [];
+		const seenRecurrenceKeys = new Set<string>();
+		
+		for (const task of unscheduledTasks) {
+			if (task.recurrence) {
+				// Usa texto base como chave para identificar recorrências
+				const baseTaskText = task.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+				const recurrenceKey = `${baseTaskText}_${task.filePath}`;
+				
+				if (!seenRecurrenceKeys.has(recurrenceKey)) {
+					seenRecurrenceKeys.add(recurrenceKey);
+					uniqueUnscheduledTasks.push(task);
+				}
+			} else {
+				// Tasks não recorrentes sempre são adicionadas
+				uniqueUnscheduledTasks.push(task);
+			}
+		}
+		
+		if (uniqueUnscheduledTasks.length > 0) {
+			this.renderUnscheduledTasks(container, uniqueUnscheduledTasks);
 		}
 	}
 
