@@ -1,7 +1,7 @@
 {
-	"id": "block-time-scheduler",
-	"name": "Block Time Scheduler",
-	"version": "1.0.0",
+	"id": "obsidian-block-time",
+	"name": "obsidian-block-time",
+	"version": "1.0.1",
 	"minAppVersion": "1.0.0",
 	"description": "Visualize e organize suas tarefas em uma agenda diária/semanal com block time visual.",
 	"author": "Levi Silvino",
