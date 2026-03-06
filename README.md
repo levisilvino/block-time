@@ -41,11 +41,10 @@ Agenda visual para Obsidian com integração completa ao Tasks API, suporte comp
 brat install levisilvino obsidian-block-time
 ```
 
-## 🔄 Integração Tasks API
+## Integração Tasks API
 
 ### Criação de tasks
 - **Clique em slot vazio** → Abre modal Tasks → Salva no Daily Note
-- **Duplo-clique em bloco** → Edita task existente via modal Tasks
 
 ### Toggle completion
 - **Checkbox** → Usa Tasks API (recorrência automática) ou fallback manual
@@ -53,12 +52,11 @@ brat install levisilvino obsidian-block-time
 
 ### Gerenciamento de recorrência
 - **Com Tasks API** → Plugin Tasks gerencia criação da próxima ocorrência
-- **Sem Tasks API** → Block Time Scheduler usa fallback manual
 - **Formatos compatíveis** → 100% alinhado com sintaxe do Tasks plugin
 
 > **Importante**: Requer plugin **Tasks** (`obsidian-tasks-plugin`) para criação/edição avançada. Toggle funciona sem ele.
 
-## ⚙️ Configuração
+## Configuração
 
 Acesse **Configurações → Community plugins → Block Time Scheduler**:
 
@@ -101,7 +99,7 @@ npm run dev
 npm run build
 ```
 
-## 📊 Performance
+## Performance
 
 - **Cache** — fileContentCache com invalidação reativa
 - **Métricas** — Console logs de hits/misses para tuning
