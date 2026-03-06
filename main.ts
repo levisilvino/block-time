@@ -71,6 +71,7 @@ interface BlockTimeSettings {
 	notifyTextDeadlineToday: string;
 	notifyTextDeadlineDays: string;
 	scanFolders: string;
+	taskCreationFolder: string;
 }
 
 const DEFAULT_SETTINGS: BlockTimeSettings = {
@@ -92,7 +93,8 @@ const DEFAULT_SETTINGS: BlockTimeSettings = {
 	notifyTextDeadlineNow: "🚨 Prazo AGORA: {task}",
 	notifyTextDeadlineToday: "🚨 Prazo HOJE: {task}",
 	notifyTextDeadlineDays: "⚠️ Prazo em {days} dia(s): {task}",
-	scanFolders: ""
+	scanFolders: "",
+	taskCreationFolder: "Task"
 };
 
 interface ParsedTask {
@@ -2221,17 +2223,30 @@ class BlockTimeView extends ItemView {
 			const taskLine = await api.createTaskLineModal();
 			if (!taskLine) return;
 
-			// Determina o arquivo destino: daily note do dia clicado
+			// Determina o arquivo destino: pasta configurada para criação de tasks
 			const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-			const dailyNotePath = this.getDailyNotePath(date);
-			let file = this.app.vault.getAbstractFileByPath(dailyNotePath);
+			let targetPath: string;
+			
+			if (this.plugin.settings.taskCreationFolder.trim()) {
+				// Usa a pasta configurada
+				const folder = this.plugin.settings.taskCreationFolder.trim();
+				targetPath = folder.endsWith(".md") 
+					? folder 
+					: `${folder}.md`;
+			} else {
+				// Fallback para daily note
+				targetPath = this.getDailyNotePath(date);
+			}
+			
+			let file = this.app.vault.getAbstractFileByPath(targetPath);
 
-			// Cria o daily note se não existir
+			// Cria o arquivo se não existir
 			if (!file) {
 				try {
-					file = await this.app.vault.create(dailyNotePath, `# ${dateStr}\n\n`);
+					const fileName = targetPath.split("/").pop()?.replace(".md", "") || dateStr;
+					file = await this.app.vault.create(targetPath, `# ${fileName}\n\n`);
 				} catch {
-					new Notice(`Não foi possível criar ${dailyNotePath}`);
+					new Notice(`Não foi possível criar ${targetPath}`);
 					return;
 				}
 			}
@@ -2245,7 +2260,7 @@ class BlockTimeView extends ItemView {
 			const newContent = content.trimEnd() + "\n" + lineToInsert + "\n";
 			await this.app.vault.modify(file, newContent);
 
-			new Notice(`Task criada em ${dailyNotePath}`);
+			new Notice(`Task criada em ${targetPath}`);
 			await new Promise(resolve => setTimeout(resolve, 500));
 			await this.render();
 		});
@@ -2713,6 +2728,23 @@ class BlockTimeSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.scanFolders)
 					.onChange(async (value) => {
 						this.plugin.settings.scanFolders = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		// Configuração de pasta para criação de tasks
+		new Setting(containerEl)
+			.setName("Pasta para criação de tasks")
+			.setDesc("Nome do arquivo onde as novas tasks serão criadas (padrão: Task)")
+			.addText(text => {
+				const folders = this.getAllFolders();
+				const folderSuggest = new FolderSuggest(this.app, text.inputEl, folders);
+				
+				return text
+					.setPlaceholder("Exemplo: Task ou Tasks/MinhasTasks")
+					.setValue(this.plugin.settings.taskCreationFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.taskCreationFolder = value;
 						await this.plugin.saveSettings();
 					});
 			});

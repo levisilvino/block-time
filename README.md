@@ -44,7 +44,15 @@ brat install levisilvino obsidian-block-time
 ## Integração Tasks API
 
 ### Criação de tasks
-- **Clique em slot vazio** → Abre modal Tasks → Salva no Daily Note
+- **Clique em slot vazio** → Abre modal Tasks → Salva no arquivo configurado
+- **Duplo-clique em bloco** → Edita task existente via modal Tasks
+
+### Pasta para criação de tasks
+Configure onde as novas tasks serão criadas:
+- **Padrão**: `Task` (cria em `Task.md`)
+- **Exemplos**: `Tasks/MinhasTasks` → cria em `Tasks/MinhasTasks.md`
+- **Fallback**: Se vazio, usa Daily Notes
+- **Auto-criação**: Arquivo é criado automaticamente se não existir
 
 ### Toggle completion
 - **Checkbox** → Usa Tasks API (recorrência automática) ou fallback manual
@@ -64,6 +72,7 @@ Acesse **Configurações → Community plugins → Block Time Scheduler**:
 - **Horas exibidas** — Início (0-12) e término (18-24)
 - **Visualização padrão** — Diária ou semanal
 - **Pastas a escanear** — Separado por vírgula (vazio = vault inteiro)
+- **Pasta para criação de tasks** — Onde novas tasks são criadas (padrão: Task)
 
 ### Aparência
 - **Tema Obsidian** — Herda cores do tema ativo
