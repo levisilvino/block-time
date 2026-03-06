@@ -15,11 +15,6 @@ Agenda visual para Obsidian com integração completa ao Tasks API, suporte comp
 
 ## Como usar
 
-### Tasks Recorrentes (sem data)
-- Crie: `- [ ] Reunião semanal 🔁 every week on Friday`
-- Aparece automaticamente na próxima Sexta-feira
-- Recorrência gerenciada pelo plugin Tasks (se instalado)
-
 ### Tasks com Data/Hora
 - Crie: `- [ ] Reunião 🔁 every week 14h 📅 2025-10-24`
 - Aparece no calendário na data e horário especificados
