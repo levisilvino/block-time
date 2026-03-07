@@ -3,7 +3,7 @@
 	"name": "Block Time",
 	"version": "1.0.1",
 	"minAppVersion": "1.0.0",
-	"description": "Visualize e organize suas tarefas em uma agenda diária/semanal com block time visual.",
+	"description": "Visual block time scheduling for tasks.",
 	"author": "Levi Silvino",
 	"authorUrl": "https://github.com/levisilvino/obsidian-block-time",
 	"isDesktopOnly": false
