@@ -1,5 +1,7 @@
 # Block Time Scheduler
 
+[![Validate Plugin Entry](https://github.com/obsidianmd/obsidian-releases/actions/workflows/validate-plugin-entry.yml/badge.svg)](https://github.com/obsidianmd/obsidian-releases/actions/workflows/validate-plugin-entry.yml)
+
 Agenda visual para Obsidian com integração completa ao Tasks API, suporte completo a recorrências e cache otimizado.
 
 
