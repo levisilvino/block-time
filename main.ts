@@ -6,7 +6,6 @@ import {
 	WorkspaceLeaf,
 	ItemView,
 	TFile,
-	TFolder,
 	Notice,
 	moment,
 	AbstractInputSuggest
@@ -120,6 +119,17 @@ interface TasksApiV1 {
 	editTaskLineModal(taskLine: string): Promise<string>;
 	executeToggleTaskDoneCommand(line: string, path: string): string;
 }
+
+type TasksPlugin = {
+	apiV1?: TasksApiV1;
+};
+
+type DailyNotesInstance = {
+	options?: {
+		format?: string;
+		folder?: string;
+	};
+};
 
 // ============================================================================
 // INTERNACIONALIZAÇÃO
@@ -515,7 +525,7 @@ class I18n {
 	private locale: string;
 	private translations: Translations;
 
-	constructor(moment: any) {
+	constructor() {
 		// Detecta idioma do Obsidian
 		this.locale = moment.locale() || 'en';
 		
@@ -546,6 +556,12 @@ class I18n {
 	}
 }
 
+function setCssProps(element: HTMLElement, props: Record<string, string | number>): void {
+	for (const [key, value] of Object.entries(props)) {
+		element.style.setProperty(key, String(value));
+	}
+}
+
 // ============================================================================
 // CONSTANTES
 // ============================================================================
@@ -570,35 +586,35 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		await this.loadSettings();
 
 		// Inicializa internacionalização
-		this.i18n = new I18n(window.moment);
+		this.i18n = new I18n();
 
 		// Registra a View customizada
 		this.registerView(
 			VIEW_TYPE_BLOCK_TIME,
-			(leaf) => new BlockTimeView(leaf, this)
+			(leaf) => new BlockTimeView(leaf, this) as any
 		);
 
 		// Comando para abrir a agenda como nota inteira
 		this.addCommand({
-			id: "open-block-time-scheduler",
-			name: "Abrir Agenda Block Time",
+			id: "open-agenda",
+			name: "Open agenda",
 			callback: () => {
-				this.activateView("tab");
+				void this.activateView("tab");
 			}
 		});
 
 		// Comando para abrir na barra lateral
 		this.addCommand({
-			id: "open-block-time-sidebar",
-			name: "Abrir Agenda Block Time (Lateral)",
+			id: "open-agenda-sidebar",
+			name: "Open agenda in sidebar",
 			callback: () => {
-				this.activateView("sidebar");
+				void this.activateView("sidebar");
 			}
 		});
 
 		// Ícone na ribbon — abre como nota inteira
-		this.addRibbonIcon("calendar-clock", "Block Time Scheduler", () => {
-			this.activateView("tab");
+		this.addRibbonIcon("calendar-clock", "Block time scheduler", () => {
+			void this.activateView("tab");
 		});
 
 		// Aba de configurações
@@ -651,19 +667,24 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		// Inicia sistema de notificações
 		this.startNotificationScheduler();
 
-		console.log(`Block Time Scheduler v${PLUGIN_VERSION} carregado!`);
+		console.debug(`Block Time Scheduler v${PLUGIN_VERSION} carregado!`);
 	}
 
 	onunload() {
 		this.stopNotificationScheduler();
 		this.fileContentCache.clear();
-		console.log(`Block Time Scheduler v${PLUGIN_VERSION} descarregado!`);
+		console.debug(`Block Time Scheduler v${PLUGIN_VERSION} descarregado!`);
 	}
 
 	getTasksApi(): TasksApiV1 | null {
 		try {
-			const tasksPlugin = (this.app as any).plugins?.plugins?.["obsidian-tasks-plugin"];
-			return tasksPlugin?.apiV1 ?? null;
+			const appWithPlugins = this.app as App & {
+				plugins?: {
+					plugins?: Record<string, unknown>;
+				};
+			};
+			const plugin = appWithPlugins.plugins?.plugins?.["obsidian-tasks-plugin"] as TasksPlugin | undefined;
+			return plugin?.apiV1 ?? null;
 		} catch {
 			return null;
 		}
@@ -679,10 +700,12 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		this.lastResetDate = new Date().toDateString();
 		// Verifica a cada 60 segundos (tolerância de ±2min cobre o intervalo)
 		this.notificationInterval = setInterval(() => {
-			this.checkAndFireNotifications();
+			void this.checkAndFireNotifications();
 		}, 60000);
 		// Verifica imediatamente ao iniciar
-		setTimeout(() => this.checkAndFireNotifications(), 5000);
+		setTimeout(() => {
+			void this.checkAndFireNotifications();
+		}, 5000);
 	}
 
 	stopNotificationScheduler() {
@@ -856,29 +879,20 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		// Notificação in-app do Obsidian
 		new Notice(`${title}\n${body}`, 10000);
 
-		// Notificação nativa do sistema operacional (aparece mesmo fora do Obsidian)
-		try {
-			const electron = require("electron");
-			const ElectronNotif = electron?.remote?.Notification ?? electron?.Notification;
-			if (ElectronNotif) {
-				const notif = new ElectronNotif({ title, body, silent: false });
-				notif.show();
-				return;
-			}
-		} catch (e) {
-			// Electron não disponível, tenta Web API
-		}
-
-		// Fallback: Web Notification API
+		// Notificação via Web Notification API (quando suportado)
 		if ("Notification" in window) {
 			if (Notification.permission === "granted") {
 				new Notification(title, { body });
 			} else if (Notification.permission !== "denied") {
-				Notification.requestPermission().then(permission => {
-					if (permission === "granted") {
-						new Notification(title, { body });
-					}
-				});
+				void Notification.requestPermission()
+					.then(permission => {
+						if (permission === "granted") {
+							new Notification(title, { body });
+						}
+					})
+					.catch(() => {
+						// Ignora erros ao solicitar permissão de notificação
+					});
 			}
 		}
 	}
@@ -909,7 +923,7 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 				type: VIEW_TYPE_BLOCK_TIME,
 				active: true
 			});
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 	}
 }
@@ -1509,7 +1523,7 @@ class TaskParser {
 			.replace(/@\d{4}-\d{2}-\d{2}/g, "")
 			.replace(/🔺|⏫|🔼|🔽/g, "")
 			.replace(/✅\s*\d{4}-\d{2}-\d{2}/g, "")
-			.replace(/🔁\s*[^📅🗓️⏳⏰🕐🔺⏫🔼🔽✅]*/g, "")
+			.replace(/🔁\s*(.+?)(?=\s*(?:📅|🗓️|⏳|⏰|🕐|🔺|⏫|🔼|🔽|✅|$))/gu, "")
 			.replace(/\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/g, "")
 			.replace(/\d{1,2}h\d{2}?\s*[-–—]\s*\d{1,2}h\d{2}?/g, "")
 			.replace(/\s+/g, " ")
@@ -1538,7 +1552,7 @@ class TaskParser {
 	}
 
 	private parseRecurrence(text: string): string | null {
-		const match = text.match(/🔁\s*(.+?)(?=\s*[📅🗓️⏳⏰🕐🔺⏫🔼🔽✅]|$)/);
+		const match = text.match(/🔁\s*(.+?)(?=\s*(?:📅|🗓️|⏳|⏰|🕐|🔺|⏫|🔼|🔽|✅|$))/u);
 		if (!match) return null;
 		return match[1].trim();
 	}
@@ -1810,7 +1824,7 @@ class BlockTimeView extends ItemView {
 		document.addEventListener("visibilitychange", this.visibilityHandler);
 	}
 
-	async onClose() {
+	async onClose(): Promise<void> {
 		if (this.renderTimeout) clearTimeout(this.renderTimeout);
 		if (this.dayCheckInterval) clearInterval(this.dayCheckInterval);
 		if (this.visibilityHandler) {
@@ -1824,14 +1838,23 @@ class BlockTimeView extends ItemView {
 		if (today !== this.lastKnownDay) {
 			this.lastKnownDay = today;
 			this.currentDate = new Date();
-			this.render();
+			void this.render();
 		}
+	}
+
+	private navigateDate(delta: number) {
+		if (this.viewMode === "day") {
+			this.currentDate.setDate(this.currentDate.getDate() + delta);
+		} else {
+			this.currentDate.setDate(this.currentDate.getDate() + (delta * 7));
+		}
+		void this.render();
 	}
 
 	private debouncedRender() {
 		if (this.renderTimeout) clearTimeout(this.renderTimeout);
 		this.renderTimeout = setTimeout(() => {
-			this.render();
+			void this.render();
 		}, 800);
 	}
 
@@ -1883,7 +1906,7 @@ class BlockTimeView extends ItemView {
 		const todayBtn = nav.createEl("button", { text: this.plugin.i18n.t('today'), cls: "block-time-today-btn" });
 		todayBtn.addEventListener("click", () => {
 			this.currentDate = new Date();
-			this.render();
+			void this.render();
 		});
 
 		// Seção direita: Toggle de visualização e refresh
@@ -1898,7 +1921,7 @@ class BlockTimeView extends ItemView {
 		});
 		dayBtn.addEventListener("click", () => {
 			this.viewMode = "day";
-			this.render();
+			void this.render();
 		});
 
 		const weekBtn = viewToggle.createEl("button", { 
@@ -1907,12 +1930,14 @@ class BlockTimeView extends ItemView {
 		});
 		weekBtn.addEventListener("click", () => {
 			this.viewMode = "week";
-			this.render();
+			void this.render();
 		});
 
 		// Botão Refresh
 		const refreshBtn = controls.createEl("button", { text: "🔄", cls: "block-time-refresh-btn" });
-		refreshBtn.addEventListener("click", () => this.render());
+		refreshBtn.addEventListener("click", () => {
+			void this.render();
+		});
 	}
 
 	private updateDateDisplay(element: HTMLElement) {
@@ -2097,8 +2122,10 @@ class BlockTimeView extends ItemView {
 		const height = task.duration;
 
 		const block = container.createDiv({ cls: "block-time-task-block" });
-		block.style.top = `${topOffset}px`;
-		block.style.height = `${Math.max(height, 30)}px`;
+		setCssProps(block, {
+			top: `${topOffset}px`,
+			height: `${Math.max(height, 30)}px`
+		});
 
 		// Classe de prioridade
 		block.addClass(`priority-${task.priority}`);
@@ -2109,19 +2136,21 @@ class BlockTimeView extends ItemView {
 		// Checkbox para concluir/desconcluir tarefa
 		const checkbox = block.createEl("input", { type: "checkbox", cls: "block-time-task-checkbox" });
 		checkbox.checked = task.completed;
-		checkbox.addEventListener("click", async (e) => {
+		checkbox.addEventListener("click", (e) => {
 			e.stopPropagation();
 			e.preventDefault();
 			if (this.isToggling) return;
 			this.isToggling = true;
-			try {
-				const api = this.plugin.getTasksApi();
-				await this.taskParser.toggleTaskCompletion(task, api);
-				await new Promise(resolve => setTimeout(resolve, 500));
-				await this.render();
-			} finally {
-				this.isToggling = false;
-			}
+			void (async () => {
+				try {
+					const api = this.plugin.getTasksApi();
+					await this.taskParser.toggleTaskCompletion(task, api);
+					await new Promise(resolve => setTimeout(resolve, 500));
+					await this.render();
+				} finally {
+					this.isToggling = false;
+				}
+			})();
 		});
 
 		// Conteúdo do bloco
@@ -2136,26 +2165,30 @@ class BlockTimeView extends ItemView {
 		textLabel.textContent = task.text || "Tarefa sem título";
 
 		// Click simples → abrir arquivo
-		blockContent.addEventListener("click", async () => {
-			const file = this.app.vault.getAbstractFileByPath(task.filePath);
-			if (file instanceof TFile) {
-				await this.app.workspace.getLeaf(false).openFile(file);
-			}
+		blockContent.addEventListener("click", () => {
+			void (async () => {
+				const file = this.app.vault.getAbstractFileByPath(task.filePath);
+				if (file instanceof TFile) {
+					await this.app.workspace.getLeaf(false).openFile(file);
+				}
+			})();
 		});
 
 		// Duplo-clique → editar task via Tasks API (se disponível)
-		blockContent.addEventListener("dblclick", async (e) => {
+		blockContent.addEventListener("dblclick", (e) => {
 			e.stopPropagation();
-			const api = this.plugin.getTasksApi();
-			if (!api) {
-				new Notice("Plugin Tasks não encontrado. Instale-o para editar tasks pelo calendário.");
-				return;
-			}
-			const edited = await this.taskParser.editTaskLine(task, api);
-			if (edited) {
-				await new Promise(resolve => setTimeout(resolve, 500));
-				await this.render();
-			}
+			void (async () => {
+				const api = this.plugin.getTasksApi();
+				if (!api) {
+					new Notice("Plugin Tasks não encontrado. Instale-o para editar tasks pelo calendário.");
+					return;
+				}
+				const edited = await this.taskParser.editTaskLine(task, api);
+				if (edited) {
+					await new Promise(resolve => setTimeout(resolve, 500));
+					await this.render();
+				}
+			})();
 		});
 
 		// Tooltip
@@ -2165,7 +2198,10 @@ class BlockTimeView extends ItemView {
 
 	private renderUnscheduledTasks(container: HTMLElement, tasks: ParsedTask[]) {
 		const section = container.createDiv({ cls: "block-time-unscheduled" });
-		section.createEl("h4", { text: this.plugin.i18n.t('unscheduled-tasks') });
+		const heading = new Setting(section);
+		heading.setName(this.plugin.i18n.t('unscheduled-tasks'));
+		heading.setHeading();
+		heading.settingEl.remove(); // Remove o container extra do Setting
 
 		const list = section.createEl("ul", { cls: "block-time-unscheduled-list" });
 		for (const task of tasks) {
@@ -2174,39 +2210,45 @@ class BlockTimeView extends ItemView {
 
 			const checkbox = item.createEl("input", { type: "checkbox" });
 			checkbox.checked = task.completed;
-			checkbox.addEventListener("click", async (e) => {
+			checkbox.addEventListener("click", (e) => {
 				e.stopPropagation();
 				e.preventDefault();
 				if (this.isToggling) return;
 				this.isToggling = true;
-				try {
-					const api = this.plugin.getTasksApi();
-					await this.taskParser.toggleTaskCompletion(task, api);
-					await new Promise(resolve => setTimeout(resolve, 500));
-					await this.render();
-				} finally {
-					this.isToggling = false;
-				}
+				void (async () => {
+					try {
+						const api = this.plugin.getTasksApi();
+						await this.taskParser.toggleTaskCompletion(task, api);
+						await new Promise(resolve => setTimeout(resolve, 500));
+						await this.render();
+					} finally {
+						this.isToggling = false;
+					}
+				})();
 			});
 
 			const textSpan = item.createSpan({ text: task.text || "Tarefa sem título" });
 			// Click simples → abrir arquivo
-			textSpan.addEventListener("click", async () => {
-				const file = this.app.vault.getAbstractFileByPath(task.filePath);
-				if (file instanceof TFile) {
-					await this.app.workspace.getLeaf(false).openFile(file);
-				}
+			textSpan.addEventListener("click", () => {
+				void (async () => {
+					const file = this.app.vault.getAbstractFileByPath(task.filePath);
+					if (file instanceof TFile) {
+						await this.app.workspace.getLeaf(false).openFile(file);
+					}
+				})();
 			});
 			// Duplo-clique → editar via Tasks API
-			textSpan.addEventListener("dblclick", async (e) => {
+			textSpan.addEventListener("dblclick", (e) => {
 				e.stopPropagation();
-				const api = this.plugin.getTasksApi();
-				if (!api) return;
-				const edited = await this.taskParser.editTaskLine(task, api);
-				if (edited) {
-					await new Promise(resolve => setTimeout(resolve, 500));
-					await this.render();
-				}
+				void (async () => {
+					const api = this.plugin.getTasksApi();
+					if (!api) return;
+					const edited = await this.taskParser.editTaskLine(task, api);
+					if (edited) {
+						await new Promise(resolve => setTimeout(resolve, 500));
+						await this.render();
+					}
+				})();
 			});
 		}
 	}
@@ -2217,73 +2259,75 @@ class BlockTimeView extends ItemView {
 
 		slot.addClass("block-time-slot-clickable");
 		slot.setAttribute("title", "Clique para criar task neste horário");
-		slot.addEventListener("click", async (e) => {
+		slot.addEventListener("click", (e) => {
 			if (e.target !== slot) return;
 
-			const taskLine = await api.createTaskLineModal();
-			if (!taskLine) return;
+			void (async () => {
+				const taskLine = await api.createTaskLineModal();
+				if (!taskLine) return;
 
-			// Determina o arquivo destino: pasta configurada para criação de tasks
-			const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-			let targetPath: string;
-			
-			if (this.plugin.settings.taskCreationFolder.trim()) {
-				// Usa a pasta configurada
-				const folder = this.plugin.settings.taskCreationFolder.trim();
-				targetPath = folder.endsWith(".md") 
-					? folder 
-					: `${folder}.md`;
-			} else {
-				// Fallback para daily note
-				targetPath = this.getDailyNotePath(date);
-			}
-			
-			let file = this.app.vault.getAbstractFileByPath(targetPath);
-
-			// Cria o arquivo se não existir
-			if (!file) {
-				try {
-					const fileName = targetPath.split("/").pop()?.replace(".md", "") || dateStr;
-					file = await this.app.vault.create(targetPath, `# ${fileName}\n\n`);
-				} catch {
-					new Notice(`Não foi possível criar ${targetPath}`);
-					return;
+				// Determina o arquivo destino: pasta configurada para criação de tasks
+				let targetPath: string;
+				
+				if (this.plugin.settings.taskCreationFolder.trim()) {
+					// Usa a pasta configurada
+					const folder = this.plugin.settings.taskCreationFolder.trim();
+					targetPath = folder.endsWith(".md") 
+						? folder 
+						: `${folder}.md`;
+				} else {
+					// Fallback para daily note
+					targetPath = this.getDailyNotePath(date);
 				}
-			}
+				
+				let file = this.app.vault.getAbstractFileByPath(targetPath);
 
-			if (!(file instanceof TFile)) return;
+				// Cria o arquivo se não existir
+				if (!file) {
+					try {
+						const fallbackName = date.toISOString().slice(0, 10);
+						const fileName = targetPath.split("/").pop()?.replace(".md", "") || fallbackName;
+						file = await this.app.vault.create(targetPath, `# ${fileName}\n\n`);
+					} catch {
+						new Notice(`Não foi possível criar ${targetPath}`);
+						return;
+					}
+				}
 
-			// Insere a task no final do arquivo
-			const content = await this.app.vault.read(file);
-			const hourStr = `${hour.toString().padStart(2, "0")}:00`;
-			const lineToInsert = taskLine.includes(hourStr) ? taskLine : taskLine;
-			const newContent = content.trimEnd() + "\n" + lineToInsert + "\n";
-			await this.app.vault.modify(file, newContent);
+				if (!(file instanceof TFile)) return;
 
-			new Notice(`Task criada em ${targetPath}`);
-			await new Promise(resolve => setTimeout(resolve, 500));
-			await this.render();
+				// Insere a task no final do arquivo
+				const content = await this.app.vault.read(file);
+				const hourStr = `${hour.toString().padStart(2, "0")}:00`;
+				const lineToInsert = taskLine.includes(hourStr) ? taskLine : taskLine;
+				const newContent = content.trimEnd() + "\n" + lineToInsert + "\n";
+				await this.app.vault.modify(file, newContent);
+
+				new Notice(`Task criada em ${targetPath}`);
+				await new Promise(resolve => setTimeout(resolve, 500));
+				await this.render();
+			})();
 		});
 	}
 
 	private getDailyNotePath(date: Date): string {
-		const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-		// Tenta detectar o formato de Daily Notes do Obsidian
-		const dailyNotesPlugin = (this.app as any).internalPlugins?.plugins?.["daily-notes"]?.instance;
-		const format = dailyNotesPlugin?.options?.format || "YYYY-MM-DD";
-		const folder = dailyNotesPlugin?.options?.folder || "";
+		try {
+			const appWithInternal = this.app as App & {
+				internalPlugins?: {
+					plugins?: Record<string, { instance?: DailyNotesInstance }>;
+				};
+			};
+			const dailyNotesPlugin = appWithInternal.internalPlugins?.plugins?.["daily-notes"]?.instance;
+			const format = dailyNotesPlugin?.options?.format || "YYYY-MM-DD";
+			const folder = dailyNotesPlugin?.options?.folder || "";
 
-		const fileName = moment(date).format(format);
-		return folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
-	}
-
-	private navigateDate(delta: number) {
-		if (this.viewMode === "day") {
-			this.currentDate.setDate(this.currentDate.getDate() + delta);
-		} else {
-			this.currentDate.setDate(this.currentDate.getDate() + (delta * 7));
+			const fileName = moment(date).format(format);
+			return folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
+		} catch {
+			// Fallback se não conseguir acessar o plugin Daily Notes
+			const fileName = moment(date).format("YYYY-MM-DD");
+			return `${fileName}.md`;
 		}
-		this.render();
 	}
 
 	private getStartOfWeek(date: Date): Date {
@@ -2349,9 +2393,6 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			return this.folderCache.folders;
 		}
 
-		// Cache inválido ou não existe - recalcular
-		const startTime = performance.now();
-		
 		const folders = new Set<string>();
 		const files = this.app.vault.getFiles();
 		
@@ -2373,8 +2414,6 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			fileCount: files.length // Mantido para logging, não usado na validação
 		};
 
-		const endTime = performance.now();
-		
 		return folders;
 	}
 
@@ -2396,9 +2435,6 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			return this.folderTreeCache.tree;
 		}
 
-		// Cache inválido ou não existe - recalcular
-		const startTime = performance.now();
-		
 		const nodeMap = new Map<string, FolderNode>();
 
 		// Inicializa todos os nós
@@ -2441,8 +2477,6 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			fileCount: files.length // Mantido para logging, não usado na validação
 		};
 
-		const endTime = performance.now();
-
 		return tree;
 	}
 
@@ -2460,8 +2494,13 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		// ══════════════════════════════════════════════
 		// SEÇÃO 1: AGENDA
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h1", { text: this.plugin.i18n.t('view-title') });
-		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-agenda') });
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('view-title'))
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('settings-agenda'))
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName(this.plugin.i18n.t('start-hour'))
@@ -2506,33 +2545,47 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		this.renderFolderPicker(containerEl);
 
 		// Info box: integração Tasks API + criação de tasks
-		const infoBox = containerEl.createDiv({ cls: "setting-item-description" });
-		infoBox.style.marginTop = "8px";
-		infoBox.style.padding = "10px 12px";
-		infoBox.style.borderRadius = "6px";
-		infoBox.style.backgroundColor = "var(--background-secondary)";
-		infoBox.style.lineHeight = "1.6";
-		infoBox.innerHTML = `
-			<strong>Como funciona a criação e edição de tasks:</strong><br>
-			<br>
-			<strong>Clique em slot vazio</strong> na grade de horas — abre o modal do plugin <em>Tasks</em> para criar uma nova task. 
-			A task é salva automaticamente no <strong>Daily Note</strong> do dia clicado, respeitando a pasta e formato configurados 
-			no plugin <em>Daily Notes</em> do Obsidian (Configurações → Daily Notes).<br>
-			<br>
-			<strong>Duplo-clique em uma task</strong> — abre o modal do <em>Tasks</em> para editar a task existente (data, hora, recorrência, etc.). 
-			As alterações são salvas diretamente no arquivo original.<br>
-			<br>
-			<strong>Checkbox</strong> — marca/desmarca a task. Se o plugin <em>Tasks</em> estiver instalado, usa a lógica dele 
-			(recorrência automática, done date, etc.). Caso contrário, usa lógica manual interna.<br>
-			<br>
-			<em>Requer o plugin <strong>Tasks</strong> (<code>obsidian-tasks-plugin</code>) para criar e editar. 
-			Sem ele, apenas o toggle por checkbox funciona.</em>
-		`;
+		const infoBox = containerEl.createDiv({ cls: "setting-item-description block-time-info-box" });
+		const infoTitle = infoBox.createEl("strong", { text: "Como funciona a criação e edição de tasks:" });
+		infoBox.createEl("br");
+		infoBox.createEl("br");
+		infoBox.createEl("span", {
+			text: "Clique em slot vazio na grade de horas — abre o modal do plugin Tasks para criar uma nova task. "
+		});
+		infoBox.createEl("span", {
+			text: "A task é salva automaticamente no Daily Note do dia clicado, respeitando a pasta e formato configurados "
+		});
+		infoBox.createEl("span", {
+			text: "no plugin Daily Notes do Obsidian (Configurações → Daily Notes)."
+		});
+		infoBox.createEl("br");
+		infoBox.createEl("br");
+		infoBox.createEl("span", {
+			text: "Duplo-clique em uma task — abre o modal do Tasks para editar a task existente (data, hora, recorrência, etc.). "
+		});
+		infoBox.createEl("span", {
+			text: "As alterações são salvas diretamente no arquivo original."
+		});
+		infoBox.createEl("br");
+		infoBox.createEl("br");
+		infoBox.createEl("span", {
+			text: "Checkbox — marca ou desmarca a task. Se o plugin Tasks estiver instalado, usa a lógica dele "
+		});
+		infoBox.createEl("span", {
+			text: "(recorrência automática, done date, etc.). Caso contrário, usa lógica manual interna."
+		});
+		infoBox.createEl("br");
+		infoBox.createEl("br");
+		infoBox.createEl("em", {
+			text: "Requer o plugin Tasks (obsidian-tasks-plugin) para criar e editar. Sem ele, apenas o toggle por checkbox funciona."
+		});
 
 		// ══════════════════════════════════════════════
 		// SEÇÃO 2: APARÊNCIA
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-appearance') });
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('settings-appearance'))
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName("Usar tema do Obsidian")
@@ -2542,15 +2595,18 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.useObsidianTheme = value;
 					await this.plugin.saveSettings();
-					this.app.workspace.getLeavesOfType("block-time-view").forEach(leaf => {
-						(leaf.view as BlockTimeView).render();
+					this.app.workspace.getLeavesOfType(VIEW_TYPE_BLOCK_TIME).forEach(leaf => {
+						const view = leaf.view as any;
+						if (view.render) void view.render();
 					});
 				}));
 
 		// ══════════════════════════════════════════════
 		// SEÇÃO 3: NOTIFICAÇÕES
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-notifications') });
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('settings-notifications'))
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName("Ativar notificações")
@@ -2592,7 +2648,9 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		// ══════════════════════════════════════════════
 		// SEÇÃO 4: PRAZOS
 		// ══════════════════════════════════════════════
-		containerEl.createEl("h2", { text: this.plugin.i18n.t('settings-deadlines') });
+		new Setting(containerEl)
+			.setName(this.plugin.i18n.t('settings-deadlines'))
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName("Ativar lembretes de prazo")
@@ -2680,7 +2738,7 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			.setDesc(this.plugin.i18n.t('advanced-folder-mode-desc'))
 			.addToggle(toggle => toggle
 				.setValue(false) // Default: modo simples
-				.onChange(async (value) => {
+				.onChange((value) => {
 					// Re-renderiza com o modo selecionado
 					this.renderFolderPickerWithMode(pickerContainer, value);
 				}));
@@ -2710,21 +2768,10 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			.addText(text => {
 				// Usa o método utilitário da classe
 				const folders = this.getAllFolders();
-				const folderSuggest = new FolderSuggest(this.app, text.inputEl, folders);
-				
-				// Registra callback para quando uma pasta for selecionada
-				folderSuggest.onSelect((folder: string, evt: MouseEvent | KeyboardEvent) => {
-					const currentValue = text.getValue();
-					const foldersList = currentValue.split(",").map(f => f.trim()).filter(f => f);
-					
-					if (!foldersList.includes(folder)) {
-						foldersList.push(folder);
-						text.setValue(foldersList.join(", "));
-					}
-				});
+				new FolderSuggest(this.app, text.inputEl, folders);
 				
 				return text
-					.setPlaceholder("Exemplo: pasta1, pasta2/subpasta")
+					.setPlaceholder("Example: folder1, folder2/subfolder")
 					.setValue(this.plugin.settings.scanFolders)
 					.onChange(async (value) => {
 						this.plugin.settings.scanFolders = value;
@@ -2734,14 +2781,14 @@ class BlockTimeSettingTab extends PluginSettingTab {
 
 		// Configuração de pasta para criação de tasks
 		new Setting(containerEl)
-			.setName("Pasta para criação de tasks")
-			.setDesc("Nome do arquivo onde as novas tasks serão criadas (padrão: Task)")
+			.setName("Folder for task creation")
+			.setDesc("File name where new tasks will be created (default: Task)")
 			.addText(text => {
 				const folders = this.getAllFolders();
-				const folderSuggest = new FolderSuggest(this.app, text.inputEl, folders);
+				new FolderSuggest(this.app, text.inputEl, folders);
 				
 				return text
-					.setPlaceholder("Exemplo: Task ou Tasks/MinhasTasks")
+					.setPlaceholder("Example: Task or Tasks/MyTasks")
 					.setValue(this.plugin.settings.taskCreationFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.taskCreationFolder = value;
@@ -2768,12 +2815,14 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				const tag = tagsEl.createSpan({ cls: "block-time-folder-tag" });
 				tag.createSpan({ text: folder });
 				const removeBtn = tag.createSpan({ text: " ✕", cls: "block-time-folder-tag-remove" });
-				removeBtn.addEventListener("click", async () => {
-					selectedFolders.splice(selectedFolders.indexOf(folder), 1);
-					this.plugin.settings.scanFolders = selectedFolders.join(", ");
-					await this.plugin.saveSettings();
-					renderTags();
-					renderTree();
+				removeBtn.addEventListener("click", () => {
+					void (async () => {
+						selectedFolders.splice(selectedFolders.indexOf(folder), 1);
+						this.plugin.settings.scanFolders = selectedFolders.join(", ");
+						await this.plugin.saveSettings();
+						renderTags();
+						renderTree();
+					})();
 				});
 			}
 		};
@@ -2790,7 +2839,6 @@ class BlockTimeSettingTab extends PluginSettingTab {
 
 		// Árvore de pastas
 		const treeEl = pickerEl.createDiv({ cls: "block-time-folder-tree" });
-		treeEl.style.display = "block"; // Mostra imediatamente no modo avançado
 
 		// Estado de colapso (inicia tudo colapsado)
 		const expandedSet: Set<string> = new Set();
@@ -2802,25 +2850,27 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			}
 
 			const rowEl = treeEl.createDiv({ cls: "block-time-folder-row" });
-			rowEl.style.paddingLeft = `${depth * 16}px`;
+			setCssProps(rowEl, { "padding-left": `${depth * 16}px` });
 
 			// Checkbox
 			const cb = rowEl.createEl("input", { type: "checkbox", cls: "block-time-folder-cb" });
 			cb.checked = selectedFolders.includes(node.path);
-			cb.addEventListener("change", async () => {
-				if (cb.checked) {
-					if (!selectedFolders.includes(node.path)) {
-						selectedFolders.push(node.path);
+			cb.addEventListener("change", () => {
+				void (async () => {
+					if (cb.checked) {
+						if (!selectedFolders.includes(node.path)) {
+							selectedFolders.push(node.path);
+						}
+					} else {
+						const index = selectedFolders.indexOf(node.path);
+						if (index > -1) {
+							selectedFolders.splice(index, 1);
+						}
 					}
-				} else {
-					const index = selectedFolders.indexOf(node.path);
-					if (index > -1) {
-						selectedFolders.splice(index, 1);
-					}
-				}
-				this.plugin.settings.scanFolders = selectedFolders.join(", ");
-				await this.plugin.saveSettings();
-				renderTags();
+					this.plugin.settings.scanFolders = selectedFolders.join(", ");
+					await this.plugin.saveSettings();
+					renderTags();
+				})();
 			});
 
 			// Setas para expandir/colapsar
@@ -2867,23 +2917,13 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		// Busca
 		searchInput.addEventListener("input", () => {
 			const query = searchInput.value.toLowerCase().trim();
-			// Sempre mostra a árvore no modo avançado, busca filtra os resultados
-			treeEl.style.display = "block";
 			renderTree(query);
 		});
 
 		// Foca no campo ao clicar no picker
 		pickerEl.addEventListener("click", () => {
 			searchInput.focus();
-			treeEl.style.display = "block";
 			renderTree(searchInput.value);
-		});
-
-		// Fecha ao clicar fora
-		document.addEventListener("click", (e) => {
-			if (!pickerEl.contains(e.target as Node)) {
-				treeEl.style.display = "none";
-			}
 		});
 
 		renderTree();
