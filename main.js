@@ -488,6 +488,9 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     this.firedNotifications = /* @__PURE__ */ new Set();
     this.lastResetDate = "";
     this.fileContentCache = /* @__PURE__ */ new Map();
+    // Índice persistente de tasks por arquivo — invalidação incremental
+    this.taskIndex = /* @__PURE__ */ new Map();
+    this.dirtyFiles = /* @__PURE__ */ new Set();
     this.settingTab = null;
   }
   // Referência para invalidação de cache
@@ -539,21 +542,30 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     }));
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian.TFile)
+        if (file instanceof import_obsidian.TFile) {
           this.fileContentCache.delete(file.path);
+          this.dirtyFiles.add(file.path);
+        }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian.TFile)
+        if (file instanceof import_obsidian.TFile) {
           this.fileContentCache.delete(file.path);
+          this.taskIndex.delete(file.path);
+          this.dirtyFiles.delete(file.path);
+        }
       })
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         this.fileContentCache.delete(oldPath);
-        if (file instanceof import_obsidian.TFile)
+        this.taskIndex.delete(oldPath);
+        this.dirtyFiles.delete(oldPath);
+        if (file instanceof import_obsidian.TFile) {
           this.fileContentCache.delete(file.path);
+          this.dirtyFiles.add(file.path);
+        }
       })
     );
     this.startNotificationScheduler();
@@ -602,7 +614,7 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
       this.firedNotifications.clear();
       this.lastResetDate = todayStr;
     }
-    const taskParser = new TaskParser(this.app, this.settings, this.fileContentCache);
+    const taskParser = new TaskParser(this.app, this.settings, this.fileContentCache, this.taskIndex, this.dirtyFiles);
     const now = new Date();
     const allTasks = await taskParser.getAllTasks();
     const todayTasks = allTasks.filter((t) => t.date && taskParser.isSameDay(t.date, now));
@@ -754,46 +766,111 @@ ${body}`, 1e4);
     }
   }
 };
-var TaskParser = class {
-  constructor(app, settings, contentCache) {
+var _TaskParser = class {
+  constructor(app, settings, contentCache, taskIndex, dirtyFiles) {
+    // Métricas de performance
     this.cacheHits = 0;
     this.cacheMisses = 0;
+    this.filesReindexed = 0;
+    this.filesSkipped = 0;
     this.app = app;
     this.settings = settings;
-    this.contentCache = contentCache || /* @__PURE__ */ new Map();
+    this.contentCache = contentCache;
+    this.taskIndex = taskIndex;
+    this.dirtyFiles = dirtyFiles;
   }
   async readFile(file) {
+    var _a;
     const path = file.path;
     if (this.contentCache.has(path)) {
       this.cacheHits++;
-      return this.contentCache.get(path);
+      return (_a = this.contentCache.get(path)) != null ? _a : "";
     }
     this.cacheMisses++;
     const content = await this.app.vault.cachedRead(file);
     this.contentCache.set(path, content);
     return content;
   }
+  /** Yield ao main thread para não bloquear a UI */
+  yieldToMain() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  /** Early-exit: verifica rapidamente se conteúdo pode ter tasks */
+  hasTaskPatternQuick(content) {
+    return _TaskParser.TASK_PATTERN.test(content);
+  }
+  /** Processa um batch de arquivos em paralelo */
+  async processFileBatch(files) {
+    const results = await Promise.allSettled(
+      files.map(async (file) => {
+        const content = await this.readFile(file);
+        if (!this.hasTaskPatternQuick(content)) {
+          this.filesSkipped++;
+          this.taskIndex.set(file.path, []);
+          return;
+        }
+        const tasks = [];
+        const lines = content.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+          const task = this.parseLine(lines[i], file.path, i + 1);
+          if (task)
+            tasks.push(task);
+        }
+        this.taskIndex.set(file.path, tasks);
+        this.filesReindexed++;
+      })
+    );
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.warn("[BlockTime] Erro ao processar arquivo:", result.reason);
+      }
+    }
+  }
   async getAllTasks() {
+    const perfStart = performance.now();
     this.cacheHits = 0;
     this.cacheMisses = 0;
-    const tasks = [];
+    this.filesReindexed = 0;
+    this.filesSkipped = 0;
     const allFiles = this.app.vault.getMarkdownFiles();
     const scanFolders = this.settings.scanFolders.split(",").map((f) => f.trim().replace(/^\/+|\/+$/g, "")).filter((f) => f.length > 0);
     const files = scanFolders.length > 0 ? allFiles.filter((f) => scanFolders.some((folder) => f.path.startsWith(folder + "/") || f.path === folder)) : allFiles;
-    for (const file of files) {
-      const content = await this.readFile(file);
-      const lines = content.split("\n");
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const task = this.parseLine(line, file.path, i + 1);
-        if (task) {
-          tasks.push(task);
+    if (this.taskIndex.size === 0) {
+      for (let i = 0; i < files.length; i += _TaskParser.BATCH_SIZE) {
+        const batch = files.slice(i, i + _TaskParser.BATCH_SIZE);
+        await this.processFileBatch(batch);
+        if (i > 0 && i % _TaskParser.YIELD_EVERY === 0) {
+          await this.yieldToMain();
+        }
+      }
+    } else {
+      const filesToReindex = files.filter((f) => this.dirtyFiles.has(f.path));
+      if (filesToReindex.length > 0) {
+        for (let i = 0; i < filesToReindex.length; i += _TaskParser.BATCH_SIZE) {
+          const batch = filesToReindex.slice(i, i + _TaskParser.BATCH_SIZE);
+          await this.processFileBatch(batch);
+        }
+      }
+      const currentPaths = new Set(files.map((f) => f.path));
+      for (const indexedPath of this.taskIndex.keys()) {
+        if (!currentPaths.has(indexedPath)) {
+          this.taskIndex.delete(indexedPath);
         }
       }
     }
-    const total = this.cacheHits + this.cacheMisses;
-    const hitRate = total > 0 ? (this.cacheHits / total * 100).toFixed(1) : "0";
-    console.debug(`[BlockTime] Cache: ${this.cacheHits} hits / ${this.cacheMisses} misses (${hitRate}% hit rate) | ${files.length} arquivos | ${tasks.length} tasks`);
+    this.dirtyFiles.clear();
+    const tasks = [];
+    for (const fileTasks of this.taskIndex.values()) {
+      for (const task of fileTasks) {
+        tasks.push(task);
+      }
+    }
+    const perfEnd = performance.now();
+    const totalFiles = files.length;
+    const indexedCount = this.taskIndex.size;
+    console.debug(
+      `[BlockTime] Scan: ${(perfEnd - perfStart).toFixed(1)}ms | ${totalFiles} arquivos | ${indexedCount} indexados | ${this.filesReindexed} re-parsed | ${this.filesSkipped} skipped | ${tasks.length} tasks | Cache: ${this.cacheHits}/${this.cacheHits + this.cacheMisses} hits`
+    );
     const today = new Date();
     return tasks.filter((task) => {
       if (task.completed || !task.recurrence || this.hasExplicitDate(task.rawLine))
@@ -812,6 +889,10 @@ var TaskParser = class {
   }
   async getTasksForDate(targetDate) {
     const allTasks = await this.getAllTasks();
+    return this.filterTasksForDate(allTasks, targetDate);
+  }
+  /** Filtra tasks para uma data específica a partir de lista pré-carregada (sem re-scan) */
+  filterTasksForDate(allTasks, targetDate) {
     const tasks = [];
     const seenTaskKeys = /* @__PURE__ */ new Set();
     const today = new Date();
@@ -825,6 +906,7 @@ var TaskParser = class {
         seenTaskKeys.add(taskKey);
       }
     }
+    const targetDateStr = this.formatDate(targetDate);
     for (const task of allTasks) {
       if (!task.recurrence)
         continue;
@@ -836,7 +918,7 @@ var TaskParser = class {
         (t) => !t.completed && t.recurrence && t.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim() === baseTaskText
       );
       if (this.shouldRecurOnDate(task, targetDate)) {
-        const completedVersion = await this.findCompletedTask(task, targetDate);
+        const completedVersion = this.findCompletedTaskFromIndex(allTasks, task, targetDateStr);
         if (completedVersion) {
           tasks.push(completedVersion);
           seenTaskKeys.add(taskKey);
@@ -848,6 +930,22 @@ var TaskParser = class {
       }
     }
     return tasks;
+  }
+  /** Busca task completada diretamente no índice em memória (O(n) no arquivo, sem I/O) */
+  findCompletedTaskFromIndex(allTasks, task, targetDateStr) {
+    const originalText = task.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+    for (const other of allTasks) {
+      if (!other.completed || other.filePath !== task.filePath)
+        continue;
+      const otherText = other.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
+      if (originalText === otherText) {
+        const doneDateMatch = other.rawLine.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+        if (doneDateMatch && doneDateMatch[1] === targetDateStr) {
+          return other;
+        }
+      }
+    }
+    return null;
   }
   calculateImplicitStartDate(recurrence, currentDate) {
     const rule = recurrence.toLowerCase().trim();
@@ -1081,12 +1179,13 @@ var TaskParser = class {
     };
   }
   async getTasksForWeek(startDate) {
+    const allTasks = await this.getAllTasks();
     const tasks = [];
     const seenTaskKeys = /* @__PURE__ */ new Set();
     for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
       const currentDay = new Date(startDate);
       currentDay.setDate(startDate.getDate() + dayOffset);
-      const dayTasks = await this.getTasksForDate(currentDay);
+      const dayTasks = this.filterTasksForDate(allTasks, currentDay);
       for (const task of dayTasks) {
         const taskKey = `${task.text.trim()}_${task.filePath}_${currentDay.toDateString()}`;
         if (!seenTaskKeys.has(taskKey)) {
@@ -1388,6 +1487,12 @@ var TaskParser = class {
     return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate();
   }
 };
+var TaskParser = _TaskParser;
+// Constantes de otimização
+TaskParser.BATCH_SIZE = 50;
+TaskParser.YIELD_EVERY = 200;
+// Regex rápido para early-exit: verifica se arquivo pode ter tasks
+TaskParser.TASK_PATTERN = /^\s*-\s*\[[ xX]\]/m;
 var BlockTimeView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -1398,7 +1503,7 @@ var BlockTimeView = class extends import_obsidian.ItemView {
     this.lastKnownDay = "";
     this.visibilityHandler = null;
     this.plugin = plugin;
-    this.taskParser = new TaskParser(this.app, plugin.settings, plugin.fileContentCache);
+    this.taskParser = new TaskParser(this.app, plugin.settings, plugin.fileContentCache, plugin.taskIndex, plugin.dirtyFiles);
     this.currentDate = new Date();
     this.viewMode = plugin.settings.defaultView;
   }
@@ -1830,14 +1935,14 @@ var BlockTimeView = class extends import_obsidian.ItemView {
     });
   }
   getDailyNotePath(date) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g;
     try {
       const appWithInternal = this.app;
       const dailyNotesPlugin = (_c = (_b = (_a = appWithInternal.internalPlugins) == null ? void 0 : _a.plugins) == null ? void 0 : _b["daily-notes"]) == null ? void 0 : _c.instance;
-      const format = ((_d = dailyNotesPlugin == null ? void 0 : dailyNotesPlugin.options) == null ? void 0 : _d.format) || "YYYY-MM-DD";
-      const folder = ((_e = dailyNotesPlugin == null ? void 0 : dailyNotesPlugin.options) == null ? void 0 : _e.folder) || "";
+      const format = (_e = (_d = dailyNotesPlugin == null ? void 0 : dailyNotesPlugin.options) == null ? void 0 : _d.format) != null ? _e : "YYYY-MM-DD";
+      const folder = (_g = (_f = dailyNotesPlugin == null ? void 0 : dailyNotesPlugin.options) == null ? void 0 : _f.folder) != null ? _g : "";
       const fileName = (0, import_obsidian.moment)(date).format(format);
-      return folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
+      return folder ? `${folder}/${fileName}.md` : fileName;
     } catch (e) {
       const fileName = (0, import_obsidian.moment)(date).format("YYYY-MM-DD");
       return `${fileName}.md`;

@@ -577,8 +577,11 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 	settings: BlockTimeSettings;
 	private notificationInterval: ReturnType<typeof setInterval> | null = null;
 	private firedNotifications: Set<string> = new Set();
-	private lastResetDate: string = "";
+	private lastResetDate = "";
 	fileContentCache: Map<string, string> = new Map();
+	// Índice persistente de tasks por arquivo — invalidação incremental
+	taskIndex: Map<string, ParsedTask[]> = new Map();
+	dirtyFiles: Set<string> = new Set();
 	i18n: I18n;
 	settingTab: BlockTimeSettingTab | null = null; // Referência para invalidação de cache
 
@@ -591,7 +594,7 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		// Registra a View customizada
 		this.registerView(
 			VIEW_TYPE_BLOCK_TIME,
-			(leaf) => new BlockTimeView(leaf, this) as any
+			(leaf) => new BlockTimeView(leaf, this)
 		);
 
 		// Comando para abrir a agenda como nota inteira
@@ -646,21 +649,33 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 			}
 		}));
 
-		// Cache de conteúdo: invalida quando arquivo é modificado/removido/renomeado
+		// Cache de conteúdo + índice de tasks: invalidação incremental
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
-				if (file instanceof TFile) this.fileContentCache.delete(file.path);
+				if (file instanceof TFile) {
+					this.fileContentCache.delete(file.path);
+					this.dirtyFiles.add(file.path);
+				}
 			})
 		);
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
-				if (file instanceof TFile) this.fileContentCache.delete(file.path);
+				if (file instanceof TFile) {
+					this.fileContentCache.delete(file.path);
+					this.taskIndex.delete(file.path);
+					this.dirtyFiles.delete(file.path);
+				}
 			})
 		);
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				this.fileContentCache.delete(oldPath);
-				if (file instanceof TFile) this.fileContentCache.delete(file.path);
+				this.taskIndex.delete(oldPath);
+				this.dirtyFiles.delete(oldPath);
+				if (file instanceof TFile) {
+					this.fileContentCache.delete(file.path);
+					this.dirtyFiles.add(file.path);
+				}
 			})
 		);
 
@@ -725,7 +740,7 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 			this.lastResetDate = todayStr;
 		}
 
-		const taskParser = new TaskParser(this.app, this.settings, this.fileContentCache);
+		const taskParser = new TaskParser(this.app, this.settings, this.fileContentCache, this.taskIndex, this.dirtyFiles);
 		const now = new Date();
 
 		// Busca todas as tasks UMA vez e reutiliza
@@ -936,20 +951,39 @@ class TaskParser {
 	app: App;
 	settings: BlockTimeSettings;
 	private contentCache: Map<string, string>;
+	// Índice incremental de tasks por arquivo
+	private taskIndex: Map<string, ParsedTask[]>;
+	private dirtyFiles: Set<string>;
+	// Métricas de performance
 	private cacheHits = 0;
 	private cacheMisses = 0;
+	private filesReindexed = 0;
+	private filesSkipped = 0;
+	// Constantes de otimização
+	private static readonly BATCH_SIZE = 50;
+	private static readonly YIELD_EVERY = 200;
+	// Regex rápido para early-exit: verifica se arquivo pode ter tasks
+	private static readonly TASK_PATTERN = /^\s*-\s*\[[ xX]\]/m;
 
-	constructor(app: App, settings: BlockTimeSettings, contentCache?: Map<string, string>) {
+	constructor(
+		app: App,
+		settings: BlockTimeSettings,
+		contentCache: Map<string, string>,
+		taskIndex: Map<string, ParsedTask[]>,
+		dirtyFiles: Set<string>
+	) {
 		this.app = app;
 		this.settings = settings;
-		this.contentCache = contentCache || new Map();
+		this.contentCache = contentCache;
+		this.taskIndex = taskIndex;
+		this.dirtyFiles = dirtyFiles;
 	}
 
 	private async readFile(file: TFile): Promise<string> {
 		const path = file.path;
 		if (this.contentCache.has(path)) {
 			this.cacheHits++;
-			return this.contentCache.get(path)!;
+			return this.contentCache.get(path) ?? '';
 		}
 
 		this.cacheMisses++;
@@ -958,10 +992,55 @@ class TaskParser {
 		return content;
 	}
 
+	/** Yield ao main thread para não bloquear a UI */
+	private yieldToMain(): Promise<void> {
+		return new Promise(resolve => setTimeout(resolve, 0));
+	}
+
+	/** Early-exit: verifica rapidamente se conteúdo pode ter tasks */
+	private hasTaskPatternQuick(content: string): boolean {
+		return TaskParser.TASK_PATTERN.test(content);
+	}
+
+	/** Processa um batch de arquivos em paralelo */
+	private async processFileBatch(files: TFile[]): Promise<void> {
+		const results = await Promise.allSettled(
+			files.map(async (file) => {
+				const content = await this.readFile(file);
+
+				// Early-exit: pula se arquivo não tem task patterns
+				if (!this.hasTaskPatternQuick(content)) {
+					this.filesSkipped++;
+					this.taskIndex.set(file.path, []);
+					return;
+				}
+
+				const tasks: ParsedTask[] = [];
+				const lines = content.split("\n");
+				for (let i = 0; i < lines.length; i++) {
+					const task = this.parseLine(lines[i], file.path, i + 1);
+					if (task) tasks.push(task);
+				}
+				this.taskIndex.set(file.path, tasks);
+				this.filesReindexed++;
+			})
+		);
+
+		// Log erros silenciosamente
+		for (const result of results) {
+			if (result.status === "rejected") {
+				console.warn("[BlockTime] Erro ao processar arquivo:", result.reason);
+			}
+		}
+	}
+
 	async getAllTasks(): Promise<ParsedTask[]> {
+		const perfStart = performance.now();
 		this.cacheHits = 0;
 		this.cacheMisses = 0;
-		const tasks: ParsedTask[] = [];
+		this.filesReindexed = 0;
+		this.filesSkipped = 0;
+
 		const allFiles = this.app.vault.getMarkdownFiles();
 
 		// Filtra por pastas configuradas (vazio = vault inteiro)
@@ -974,31 +1053,67 @@ class TaskParser {
 			? allFiles.filter(f => scanFolders.some(folder => f.path.startsWith(folder + "/") || f.path === folder))
 			: allFiles;
 
-		for (const file of files) {
-			const content = await this.readFile(file);
-			const lines = content.split("\n");
+		// === ÍNDICE INCREMENTAL ===
+		// Primeiro scan: indexa tudo em batches paralelos
+		// Scans seguintes: re-indexa apenas arquivos modificados (dirty)
+		if (this.taskIndex.size === 0) {
+			// Scan inicial em batches para não bloquear a UI
+			for (let i = 0; i < files.length; i += TaskParser.BATCH_SIZE) {
+				const batch = files.slice(i, i + TaskParser.BATCH_SIZE);
+				await this.processFileBatch(batch);
 
-			for (let i = 0; i < lines.length; i++) {
-				const line = lines[i];
-				const task = this.parseLine(line, file.path, i + 1);
-				if (task) {
-					tasks.push(task);
+				// Yield ao main thread a cada N arquivos
+				if (i > 0 && i % TaskParser.YIELD_EVERY === 0) {
+					await this.yieldToMain();
+				}
+			}
+		} else {
+			// Re-indexa apenas arquivos dirty
+			const filesToReindex = files.filter(f => this.dirtyFiles.has(f.path));
+			if (filesToReindex.length > 0) {
+				for (let i = 0; i < filesToReindex.length; i += TaskParser.BATCH_SIZE) {
+					const batch = filesToReindex.slice(i, i + TaskParser.BATCH_SIZE);
+					await this.processFileBatch(batch);
+				}
+			}
+
+			// Remove arquivos deletados do índice
+			const currentPaths = new Set(files.map(f => f.path));
+			for (const indexedPath of this.taskIndex.keys()) {
+				if (!currentPaths.has(indexedPath)) {
+					this.taskIndex.delete(indexedPath);
 				}
 			}
 		}
 
-		// Métrica de cache para tuning
-		const total = this.cacheHits + this.cacheMisses;
-		const hitRate = total > 0 ? ((this.cacheHits / total) * 100).toFixed(1) : "0";
-		console.debug(`[BlockTime] Cache: ${this.cacheHits} hits / ${this.cacheMisses} misses (${hitRate}% hit rate) | ${files.length} arquivos | ${tasks.length} tasks`);
+		// Limpa dirtyFiles após re-indexação
+		this.dirtyFiles.clear();
 
-		// Filtra tasks [ ] + 🔁 sem data que já foram completadas hoje (apenas se não existir task pendente)
+		// Coleta todas as tasks do índice
+		const tasks: ParsedTask[] = [];
+		for (const fileTasks of this.taskIndex.values()) {
+			for (const task of fileTasks) {
+				tasks.push(task);
+			}
+		}
+
+		// Métricas de performance
+		const perfEnd = performance.now();
+		const totalFiles = files.length;
+		const indexedCount = this.taskIndex.size;
+		console.debug(
+			`[BlockTime] Scan: ${(perfEnd - perfStart).toFixed(1)}ms | ` +
+			`${totalFiles} arquivos | ${indexedCount} indexados | ` +
+			`${this.filesReindexed} re-parsed | ${this.filesSkipped} skipped | ` +
+			`${tasks.length} tasks | ` +
+			`Cache: ${this.cacheHits}/${this.cacheHits + this.cacheMisses} hits`
+		);
+
+		// Filtra tasks [ ] + 🔁 sem data que já foram completadas hoje
 		const today = new Date();
 		return tasks.filter(task => {
-			// Se não é pendente + recorrente + sem data, mantém
 			if (task.completed || !task.recurrence || this.hasExplicitDate(task.rawLine)) return true;
 
-			// Verifica se existe [x] + 🔁 + ✅ hoje E não existe [ ] + 🔁 no mesmo arquivo
 			const hasDoneToday = tasks.some(other =>
 				other.completed &&
 				other.recurrence &&
@@ -1009,7 +1124,6 @@ class TaskParser {
 				this.isSameDay(this.parseDoneDate(other.rawLine)!, today)
 			);
 			
-			// Se foi completada hoje, verifica se ainda existe task pendente
 			if (hasDoneToday) {
 				const hasPending = tasks.some(other =>
 					!other.completed &&
@@ -1018,29 +1132,31 @@ class TaskParser {
 					other.text === task.text &&
 					!this.hasExplicitDate(other.rawLine)
 				);
-				return hasPending; // Mantém apenas se ainda existe task pendente
+				return hasPending;
 			}
 			
-			return true; // Mantém se não foi completada hoje
+			return true;
 		});
 	}
 
 	async getTasksForDate(targetDate: Date): Promise<ParsedTask[]> {
 		const allTasks = await this.getAllTasks();
+		return this.filterTasksForDate(allTasks, targetDate);
+	}
+
+	/** Filtra tasks para uma data específica a partir de lista pré-carregada (sem re-scan) */
+	private filterTasksForDate(allTasks: ParsedTask[], targetDate: Date): ParsedTask[] {
 		const tasks: ParsedTask[] = [];
 		const seenTaskKeys = new Set<string>();
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
 		// 1. Adiciona TODAS as tarefas existentes com data explícita (incluindo completadas)
-		// SEMPRE adiciona tasks com data explícita, sem filtros
 		for (const task of allTasks) {
-			// Verifica se tem data explícita OU data de conclusão
 			const hasExplicitDate = task.date && this.isSameDay(task.date, targetDate);
 			const hasDoneDate = this.parseDoneDate(task.rawLine) && this.isSameDay(this.parseDoneDate(task.rawLine)!, targetDate);
 			
 			if (hasExplicitDate || hasDoneDate) {
-				// Usa linha completa como chave para distinguir recorrências diferentes
 				const taskKey = `${task.rawLine.trim()}_${task.filePath}`;
 				tasks.push(task);
 				seenTaskKeys.add(taskKey);
@@ -1048,44 +1164,62 @@ class TaskParser {
 		}
 
 		// 2. Expande recorrências para preencher calendário completo
+		const targetDateStr = this.formatDate(targetDate);
 		for (const task of allTasks) {
 			if (!task.recurrence) continue;
 
-			// Usa texto base (sem checkbox e data de conclusão) como chave
 			const baseTaskText = task.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim();
 			const taskKey = `${baseTaskText}_${task.filePath}`;
 			
-			// Pula se já existe uma task com este texto base neste dia
 			if (seenTaskKeys.has(taskKey)) continue;
 
-			// Verifica se existe uma task pendente (não completada) para esta recorrência
-			// Se só existem versões completadas, a recorrência foi encerrada
 			const hasPendingTask = allTasks.some(t => 
 				!t.completed && 
 				t.recurrence &&
 				t.rawLine.replace(/^(\s*)-\s*\[[xX]\]\s*/, "").replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").trim() === baseTaskText
 			);
 
-			// Verifica se a recorrência deve aparecer nesta data
 			if (this.shouldRecurOnDate(task, targetDate)) {
-				// Busca se existe versão completada nesta data específica
-				const completedVersion = await this.findCompletedTask(task, targetDate);
+				// Busca versão completada diretamente no índice (sem re-ler arquivo)
+				const completedVersion = this.findCompletedTaskFromIndex(allTasks, task, targetDateStr);
 				
 				if (completedVersion) {
-					// Se existe versão completada, mostra apenas ela
 					tasks.push(completedVersion);
 					seenTaskKeys.add(taskKey);
 				} else if (hasPendingTask && (targetDate >= today || !this.hasExplicitDate(task.rawLine))) {
-					// Se existe task pendente E (é data futura OU é recorrência sem data), gera ocorrência prevista
 					const generatedTask = this.createRecurrenceInstance(task, targetDate);
 					tasks.push(generatedTask);
 					seenTaskKeys.add(taskKey);
 				}
-				// Se não existe task pendente, não gera ocorrências futuras (recorrência encerrada)
 			}
 		}
 
 		return tasks;
+	}
+
+	/** Busca task completada diretamente no índice em memória (O(n) no arquivo, sem I/O) */
+	private findCompletedTaskFromIndex(allTasks: ParsedTask[], task: ParsedTask, targetDateStr: string): ParsedTask | null {
+		const originalText = task.rawLine
+			.replace(/^(\s*)-\s*\[[xX]\]\s*/, "")
+			.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "")
+			.trim();
+
+		for (const other of allTasks) {
+			if (!other.completed || other.filePath !== task.filePath) continue;
+			
+			const otherText = other.rawLine
+				.replace(/^(\s*)-\s*\[[xX]\]\s*/, "")
+				.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "")
+				.trim();
+
+			if (originalText === otherText) {
+				const doneDateMatch = other.rawLine.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+				if (doneDateMatch && doneDateMatch[1] === targetDateStr) {
+					return other;
+				}
+			}
+		}
+		return null;
 	}
 
 	private calculateImplicitStartDate(recurrence: string, currentDate: Date): Date {
@@ -1340,18 +1474,18 @@ class TaskParser {
 	}
 
 	async getTasksForWeek(startDate: Date): Promise<ParsedTask[]> {
+		// OTIMIZAÇÃO: scan único do vault, depois filtra por dia
+		const allTasks = await this.getAllTasks();
 		const tasks: ParsedTask[] = [];
 		const seenTaskKeys = new Set<string>();
 
-		// Processa cada dia da semana
 		for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
 			const currentDay = new Date(startDate);
 			currentDay.setDate(startDate.getDate() + dayOffset);
 
-			// Usa a mesma lógica do getTasksForDate para este dia específico
-			const dayTasks = await this.getTasksForDate(currentDay);
+			// Reutiliza allTasks já carregadas (sem re-scan)
+			const dayTasks = this.filterTasksForDate(allTasks, currentDay);
 			
-			// Adiciona as tasks do dia, evitando duplicatas na semana
 			for (const task of dayTasks) {
 				const taskKey = `${task.text.trim()}_${task.filePath}_${currentDay.toDateString()}`;
 				if (!seenTaskKeys.has(taskKey)) {
@@ -1761,13 +1895,13 @@ class BlockTimeView extends ItemView {
 	private isToggling = false;
 	private isRendering = false;
 	private dayCheckInterval: ReturnType<typeof setInterval> | null = null;
-	private lastKnownDay: string = "";
+	private lastKnownDay = "";
 	private visibilityHandler: (() => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: BlockTimeSchedulerPlugin) {
 		super(leaf);
 		this.plugin = plugin;
-		this.taskParser = new TaskParser(this.app, plugin.settings, plugin.fileContentCache);
+		this.taskParser = new TaskParser(this.app, plugin.settings, plugin.fileContentCache, plugin.taskIndex, plugin.dirtyFiles);
 		this.currentDate = new Date();
 		this.viewMode = plugin.settings.defaultView;
 	}
@@ -2318,11 +2452,11 @@ class BlockTimeView extends ItemView {
 				};
 			};
 			const dailyNotesPlugin = appWithInternal.internalPlugins?.plugins?.["daily-notes"]?.instance;
-			const format = dailyNotesPlugin?.options?.format || "YYYY-MM-DD";
-			const folder = dailyNotesPlugin?.options?.folder || "";
+			const format = dailyNotesPlugin?.options?.format ?? "YYYY-MM-DD";
+			const folder = dailyNotesPlugin?.options?.folder ?? "";
 
 			const fileName = moment(date).format(format);
-			return folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
+			return folder ? `${folder}/${fileName}.md` : fileName;
 		} catch {
 			// Fallback se não conseguir acessar o plugin Daily Notes
 			const fileName = moment(date).format("YYYY-MM-DD");
@@ -2843,7 +2977,7 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		// Estado de colapso (inicia tudo colapsado)
 		const expandedSet: Set<string> = new Set();
 
-		const renderNode = (node: FolderNode, depth: number = 0, filterQuery: string = "") => {
+		const renderNode = (node: FolderNode, depth = 0, filterQuery = "") => {
 			// Filtra pela busca se houver
 			if (filterQuery && !node.name.toLowerCase().includes(filterQuery.toLowerCase())) {
 				return;
@@ -2904,7 +3038,7 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			}
 		};
 
-		const renderTree = (filterQuery: string = "") => {
+		const renderTree = (filterQuery = "") => {
 			treeEl.empty();
 			const allFiles = this.app.vault.getFiles();
 			const folderTree = this.buildFolderTree(allFiles);
