@@ -591,7 +591,7 @@ function setCssProps(element: HTMLElement, props: Record<string, string | number
 // CONSTANTES
 // ============================================================================
 
-const PLUGIN_VERSION = "1.0.0";
+const PLUGIN_VERSION = "1.0.2";
 const VIEW_TYPE_BLOCK_TIME = "block-time-view";
 
 // ============================================================================
@@ -600,10 +600,9 @@ const VIEW_TYPE_BLOCK_TIME = "block-time-view";
 
 export default class BlockTimeSchedulerPlugin extends Plugin {
 	settings: BlockTimeSettings;
-	private notificationInterval: ReturnType<typeof setInterval> | null = null;
+	private notificationInterval: number | null = null;
 	private firedNotifications: Set<string> = new Set();
 	private lastResetDate = "";
-	fileContentCache: Map<string, string> = new Map();
 	// Índice persistente de tasks por arquivo — invalidação incremental
 	taskIndex: Map<string, ParsedTask[]> = new Map();
 	dirtyFiles: Set<string> = new Set();
@@ -674,11 +673,10 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 			}
 		}));
 
-		// Cache de conteúdo + índice de tasks: invalidação incremental
+		// Índice de tasks: invalidação incremental
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
 				if (file instanceof TFile) {
-					this.fileContentCache.delete(file.path);
 					this.dirtyFiles.add(file.path);
 				}
 			})
@@ -686,7 +684,6 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
 				if (file instanceof TFile) {
-					this.fileContentCache.delete(file.path);
 					this.taskIndex.delete(file.path);
 					this.dirtyFiles.delete(file.path);
 				}
@@ -694,11 +691,9 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		);
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
-				this.fileContentCache.delete(oldPath);
 				this.taskIndex.delete(oldPath);
 				this.dirtyFiles.delete(oldPath);
 				if (file instanceof TFile) {
-					this.fileContentCache.delete(file.path);
 					this.dirtyFiles.add(file.path);
 				}
 			})
@@ -712,7 +707,7 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 
 	onunload() {
 		this.stopNotificationScheduler();
-		this.fileContentCache.clear();
+		this.app.workspace.detachLeavesOfType(VIEW_TYPE_BLOCK_TIME);
 		console.debug(`Block Time Scheduler v${PLUGIN_VERSION} descarregado!`);
 	}
 
@@ -739,9 +734,10 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 		this.firedNotifications.clear();
 		this.lastResetDate = new Date().toDateString();
 		// Verifica a cada 60 segundos (tolerância de ±2min cobre o intervalo)
-		this.notificationInterval = setInterval(() => {
+		this.notificationInterval = window.setInterval(() => {
 			void this.checkAndFireNotifications();
 		}, 60000);
+		this.registerInterval(this.notificationInterval);
 		// Verifica imediatamente ao iniciar
 		setTimeout(() => {
 			void this.checkAndFireNotifications();
@@ -765,7 +761,7 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 			this.lastResetDate = todayStr;
 		}
 
-		const taskParser = new TaskParser(this.app, this.settings, this.fileContentCache, this.taskIndex, this.dirtyFiles);
+		const taskParser = new TaskParser(this.app, this.settings, this.taskIndex, this.dirtyFiles);
 		const now = new Date();
 
 		// Busca todas as tasks UMA vez e reutiliza
@@ -975,13 +971,10 @@ export default class BlockTimeSchedulerPlugin extends Plugin {
 class TaskParser {
 	app: App;
 	settings: BlockTimeSettings;
-	private contentCache: Map<string, string>;
 	// Índice incremental de tasks por arquivo
 	private taskIndex: Map<string, ParsedTask[]>;
 	private dirtyFiles: Set<string>;
 	// Métricas de performance
-	private cacheHits = 0;
-	private cacheMisses = 0;
 	private filesReindexed = 0;
 	private filesSkipped = 0;
 	// Constantes de otimização
@@ -993,28 +986,17 @@ class TaskParser {
 	constructor(
 		app: App,
 		settings: BlockTimeSettings,
-		contentCache: Map<string, string>,
 		taskIndex: Map<string, ParsedTask[]>,
 		dirtyFiles: Set<string>
 	) {
 		this.app = app;
 		this.settings = settings;
-		this.contentCache = contentCache;
 		this.taskIndex = taskIndex;
 		this.dirtyFiles = dirtyFiles;
 	}
 
 	private async readFile(file: TFile): Promise<string> {
-		const path = file.path;
-		if (this.contentCache.has(path)) {
-			this.cacheHits++;
-			return this.contentCache.get(path) ?? '';
-		}
-
-		this.cacheMisses++;
-		const content = await this.app.vault.cachedRead(file);
-		this.contentCache.set(path, content);
-		return content;
+		return await this.app.vault.cachedRead(file);
 	}
 
 	/** Yield ao main thread para não bloquear a UI */
@@ -1061,8 +1043,6 @@ class TaskParser {
 
 	async getAllTasks(): Promise<ParsedTask[]> {
 		const perfStart = performance.now();
-		this.cacheHits = 0;
-		this.cacheMisses = 0;
 		this.filesReindexed = 0;
 		this.filesSkipped = 0;
 
@@ -1130,8 +1110,7 @@ class TaskParser {
 			`[BlockTime] Scan: ${(perfEnd - perfStart).toFixed(1)}ms | ` +
 			`${totalFiles} arquivos | ${indexedCount} indexados | ` +
 			`${this.filesReindexed} re-parsed | ${this.filesSkipped} skipped | ` +
-			`${tasks.length} tasks | ` +
-			`Cache: ${this.cacheHits}/${this.cacheHits + this.cacheMisses} hits`
+			`${tasks.length} tasks`
 		);
 
 		// Filtra tasks [ ] + sem data que já foram completadas hoje
@@ -1918,14 +1897,13 @@ class BlockTimeView extends ItemView {
 	private renderTimeout: ReturnType<typeof setTimeout> | null = null;
 	private isToggling = false;
 	private isRendering = false;
-	private dayCheckInterval: ReturnType<typeof setInterval> | null = null;
+	private dayCheckInterval: number | null = null;
 	private lastKnownDay = "";
-	private visibilityHandler: (() => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: BlockTimeSchedulerPlugin) {
 		super(leaf);
 		this.plugin = plugin;
-		this.taskParser = new TaskParser(this.app, plugin.settings, plugin.fileContentCache, plugin.taskIndex, plugin.dirtyFiles);
+		this.taskParser = new TaskParser(this.app, plugin.settings, plugin.taskIndex, plugin.dirtyFiles);
 		this.currentDate = new Date();
 		this.viewMode = plugin.settings.defaultView;
 	}
@@ -1969,25 +1947,21 @@ class BlockTimeView extends ItemView {
 		);
 
 		// Verifica mudança de dia a cada 60s (cobre meia-noite)
-		this.dayCheckInterval = setInterval(() => {
+		this.dayCheckInterval = window.setInterval(() => {
 			this.checkDayChange();
 		}, 60_000);
+		this.registerInterval(this.dayCheckInterval);
 
 		// Verifica mudança de dia quando o Obsidian volta ao foco
-		this.visibilityHandler = () => {
+		this.registerDomEvent(document, "visibilitychange", () => {
 			if (document.visibilityState === "visible") {
 				this.checkDayChange();
 			}
-		};
-		document.addEventListener("visibilitychange", this.visibilityHandler);
+		});
 	}
 
 	onClose(): Promise<void> {
 		if (this.renderTimeout) clearTimeout(this.renderTimeout);
-		if (this.dayCheckInterval) clearInterval(this.dayCheckInterval);
-		if (this.visibilityHandler) {
-			document.removeEventListener("visibilitychange", this.visibilityHandler);
-		}
 		this.contentEl.empty();
 		return Promise.resolve();
 	}
@@ -2441,9 +2415,14 @@ class BlockTimeView extends ItemView {
 				
 				let file = this.app.vault.getAbstractFileByPath(targetPath);
 
-				// Cria o arquivo se não existir
+				// Cria o arquivo se não existir (incluindo diretórios pais)
 				if (!file) {
 					try {
+						// Garante que diretórios pais existam
+						const parentDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
+						if (parentDir && !this.app.vault.getAbstractFileByPath(parentDir)) {
+							await this.app.vault.createFolder(parentDir);
+						}
 						const fallbackName = date.toISOString().slice(0, 10);
 						const fileName = targetPath.split("/").pop()?.replace(".md", "") ?? fallbackName;
 						file = await this.app.vault.create(targetPath, `# ${fileName}\n\n`);
