@@ -125,7 +125,12 @@ var TRANSLATIONS = {
     "no-folders-selected": "No folders selected (entire vault)",
     "placeholders": "Placeholders: {task} {min} {days} {time} {endTime} {file} {date}",
     "advanced-folder-mode": "Advanced folder selection mode",
-    "advanced-folder-mode-desc": "Use advanced folder picker with tree view (disable for simple text mode)"
+    "advanced-folder-mode-desc": "Use advanced folder picker with tree view (disable for simple text mode)",
+    "info-title": "How task creation and editing works:",
+    "info-para1": "Click an empty slot in the hour grid \u2014 opens the Tasks plugin modal to create a new task. The task is saved automatically to the daily note for the selected day, using the folder and format configured in the Daily Notes plugin (Settings \u2192 Daily Notes).",
+    "info-para2": "Double-click a task \u2014 opens the Tasks modal to edit the existing task (date, time, recurrence, etc.). Changes are saved directly to the original file.",
+    "info-para3": "Checkbox \u2014 mark or unmark a task. If the Tasks plugin is installed, uses its logic (automatic recurrence, done date, etc.). Otherwise, uses the plugin's internal logic.",
+    "info-footer": "Requires the Tasks plugin (obsidian-tasks-plugin) to create and edit tasks. Without it, only the checkbox toggle works."
   },
   "pt": {
     "view-title": "Agenda de Blocos de Tempo",
@@ -182,7 +187,12 @@ var TRANSLATIONS = {
     "no-folders-selected": "Nenhuma pasta selecionada (vault inteiro)",
     "placeholders": "Placeholders: {task} {min} {days} {time} {endTime} {file} {date}",
     "advanced-folder-mode": "Modo avan\xE7ado de sele\xE7\xE3o de pastas",
-    "advanced-folder-mode-desc": "Use o seletor avan\xE7ado com \xE1rvore de pastas (desative para modo simples com texto)"
+    "advanced-folder-mode-desc": "Use o seletor avan\xE7ado com \xE1rvore de pastas (desative para modo simples com texto)",
+    "info-title": "Como funciona a cria\xE7\xE3o e edi\xE7\xE3o de tasks:",
+    "info-para1": "Clique em um slot vazio na grade de horas \u2014 abre o modal do plugin Tasks para criar uma nova task. A task \xE9 salva automaticamente no Daily Note do dia clicado, respeitando a pasta e formato configurados no plugin Daily Notes do Obsidian (Configura\xE7\xF5es \u2192 Daily Notes).",
+    "info-para2": "Duplo-clique em uma task \u2014 abre o modal do Tasks para editar a task existente (data, hora, recorr\xEAncia, etc.). As altera\xE7\xF5es s\xE3o salvas diretamente no arquivo original.",
+    "info-para3": "Checkbox \u2014 marca ou desmarca a task. Se o plugin Tasks estiver instalado, usa a l\xF3gica dele (recorr\xEAncia autom\xE1tica, done date, etc.). Caso contr\xE1rio, usa l\xF3gica manual interna.",
+    "info-footer": "Requer o plugin Tasks (obsidian-tasks-plugin) para criar e editar. Sem ele, apenas o toggle por checkbox funciona."
   },
   "es": {
     "view-title": "Agenda de Bloques de Tiempo",
@@ -239,7 +249,12 @@ var TRANSLATIONS = {
     "no-folders-selected": "Ninguna carpeta seleccionada (vault entero)",
     "placeholders": "Placeholders: {task} {min} {days} {time} {endTime} {file} {date}",
     "advanced-folder-mode": "Modo avanzado de selecci\xF3n de carpetas",
-    "advanced-folder-mode-desc": "Use el selector avanzado con \xE1rbol de carpetas (desactive para modo simple con texto)"
+    "advanced-folder-mode-desc": "Use el selector avanzado con \xE1rbol de carpetas (desactive para modo simple con texto)",
+    "info-title": "C\xF3mo funciona la creaci\xF3n y edici\xF3n de tareas:",
+    "info-para1": "Haga clic en un espacio vac\xEDo en la cuadr\xEDcula de horas \u2014 abre el modal del plugin Tasks para crear una nueva tarea. La tarea se guarda autom\xE1ticamente en la nota diaria del d\xEDa seleccionado, usando la carpeta y formato configurados en el plugin Daily Notes (Configuraci\xF3n \u2192 Daily Notes).",
+    "info-para2": "Doble clic en una tarea \u2014 abre el modal de Tasks para editar la tarea existente (fecha, hora, recurrencia, etc.). Los cambios se guardan directamente en el archivo original.",
+    "info-para3": "Casilla de verificaci\xF3n \u2014 marcar o desmarcar una tarea. Si el plugin Tasks est\xE1 instalado, usa su l\xF3gica (recurrencia autom\xE1tica, fecha de finalizaci\xF3n, etc.). De lo contrario, usa la l\xF3gica interna del plugin.",
+    "info-footer": "Requiere el plugin Tasks (obsidian-tasks-plugin) para crear y editar tareas. Sin \xE9l, solo funciona el toggle de la casilla de verificaci\xF3n."
   },
   "fr": {
     "view-title": "Planificateur de Blocs de Temps",
@@ -296,7 +311,12 @@ var TRANSLATIONS = {
     "no-folders-selected": "Aucun dossier s\xE9lectionn\xE9 (vault entier)",
     "placeholders": "Placeholders: {task} {min} {days} {time} {endTime} {file} {date}",
     "advanced-folder-mode": "Mode avanc\xE9 de s\xE9lection de dossiers",
-    "advanced-folder-mode-desc": "Utilisez le s\xE9lecteur avanc\xE9 avec arborescence (d\xE9sactivez pour mode simple avec texte)"
+    "advanced-folder-mode-desc": "Utilisez le s\xE9lecteur avanc\xE9 avec arborescence (d\xE9sactivez pour mode simple avec texte)",
+    "info-title": "Comment fonctionne la cr\xE9ation et l'\xE9dition de t\xE2ches :",
+    "info-para1": "Cliquez sur un cr\xE9neau vide dans la grille d'heures \u2014 ouvre le modal du plugin Tasks pour cr\xE9er une nouvelle t\xE2che. La t\xE2che est sauvegard\xE9e automatiquement dans la note quotidienne du jour s\xE9lectionn\xE9, en utilisant le dossier et le format configur\xE9s dans le plugin Daily Notes (Param\xE8tres \u2192 Daily Notes).",
+    "info-para2": "Double-clic sur une t\xE2che \u2014 ouvre le modal Tasks pour modifier la t\xE2che existante (date, heure, r\xE9currence, etc.). Les modifications sont sauvegard\xE9es directement dans le fichier original.",
+    "info-para3": "Case \xE0 cocher \u2014 marquer ou d\xE9marquer une t\xE2che. Si le plugin Tasks est install\xE9, utilise sa logique (r\xE9currence automatique, date de fin, etc.). Sinon, utilise la logique interne du plugin.",
+    "info-footer": "N\xE9cessite le plugin Tasks (obsidian-tasks-plugin) pour cr\xE9er et modifier des t\xE2ches. Sans lui, seule la case \xE0 cocher fonctionne."
   },
   "de": {
     "view-title": "Block-Zeitplaner",
@@ -353,7 +373,12 @@ var TRANSLATIONS = {
     "no-folders-selected": "Keine Ordner ausgew\xE4hlt (ganzer Vault)",
     "placeholders": "Placeholders: {task} {min} {days} {time} {endTime} {file} {date}",
     "advanced-folder-mode": "Erweiterter Ordnerauswahlmodus",
-    "advanced-folder-mode-desc": "Verwenden Sie erweiterten Ordnerauswahl mit Baumansicht (deaktivieren f\xFCr einfachen Textmodus)"
+    "advanced-folder-mode-desc": "Verwenden Sie erweiterten Ordnerauswahl mit Baumansicht (deaktivieren f\xFCr einfachen Textmodus)",
+    "info-title": "So funktioniert das Erstellen und Bearbeiten von Aufgaben:",
+    "info-para1": "Klicken Sie auf einen leeren Zeitslot im Stundenraster \u2014 \xF6ffnet das Tasks-Plugin-Modal zum Erstellen einer neuen Aufgabe. Die Aufgabe wird automatisch in der Tagesnotiz des ausgew\xE4hlten Tages gespeichert, unter Verwendung des Ordners und Formats, das im Daily Notes-Plugin konfiguriert ist (Einstellungen \u2192 Daily Notes).",
+    "info-para2": "Doppelklick auf eine Aufgabe \u2014 \xF6ffnet das Tasks-Modal zum Bearbeiten der vorhandenen Aufgabe (Datum, Uhrzeit, Wiederholung usw.). \xC4nderungen werden direkt in der Originaldatei gespeichert.",
+    "info-para3": "Kontrollk\xE4stchen \u2014 Aufgabe markieren oder demarkieren. Wenn das Tasks-Plugin installiert ist, wird dessen Logik verwendet (automatische Wiederholung, Erledigungsdatum usw.). Andernfalls wird die interne Logik des Plugins verwendet.",
+    "info-footer": "Erfordert das Tasks-Plugin (obsidian-tasks-plugin) zum Erstellen und Bearbeiten von Aufgaben. Ohne es funktioniert nur das Kontrollk\xE4stchen."
   },
   "it": {
     "view-title": "Programmatore di Blocchi di Tempo",
@@ -1873,7 +1898,7 @@ var BlockTimeView = class extends import_obsidian.ItemView {
           }
         })();
       });
-      const textSpan = item.createSpan({ text: task.text || "Tarefa sem t\xEDtulo" });
+      const textSpan = item.createSpan({ text: task.text || "Untitled task" });
       textSpan.addEventListener("click", () => {
         void (async () => {
           const file = this.app.vault.getAbstractFileByPath(task.filePath);
@@ -2071,45 +2096,28 @@ var BlockTimeSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.endHour = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Visualiza\xE7\xE3o padr\xE3o").setDesc("Escolha entre visualiza\xE7\xE3o di\xE1ria ou semanal").addDropdown((dropdown) => dropdown.addOption("day", "Di\xE1ria").addOption("week", "Semanal").setValue(this.plugin.settings.defaultView).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Default view").setDesc("Choose between daily or weekly view").addDropdown((dropdown) => dropdown.addOption("day", "Daily").addOption("week", "Weekly").setValue(this.plugin.settings.defaultView).onChange(async (value) => {
       this.plugin.settings.defaultView = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Pastas a escanear").setDesc("Selecione as pastas onde buscar tarefas. Nenhuma selecionada = vault inteiro.");
+    new import_obsidian.Setting(containerEl).setName(this.plugin.i18n.t("scan-folders")).setDesc(this.plugin.i18n.t("scan-folders-desc"));
     this.renderFolderPicker(containerEl);
     const infoBox = containerEl.createDiv({ cls: "setting-item-description block-time-info-box" });
-    infoBox.createEl("strong", { text: "Como funciona a cria\xE7\xE3o e edi\xE7\xE3o de tasks:" });
+    infoBox.createEl("strong", { text: this.plugin.i18n.t("info-title") });
     infoBox.createEl("br");
     infoBox.createEl("br");
-    infoBox.createEl("span", {
-      text: "Clique em slot vazio na grade de horas \u2014 abre o modal do plugin Tasks para criar uma nova task. "
-    });
-    infoBox.createEl("span", {
-      text: "A task \xE9 salva automaticamente no Daily Note do dia clicado, respeitando a pasta e formato configurados no plugin Daily Notes do Obsidian (Configura\xE7\xF5es \u2192 Daily Notes)."
-    });
+    infoBox.createEl("span", { text: this.plugin.i18n.t("info-para1") });
     infoBox.createEl("br");
     infoBox.createEl("br");
-    infoBox.createEl("span", {
-      text: "Duplo-clique em uma task \u2014 abre o modal do Tasks para editar a task existente (data, hora, recorr\xEAncia, etc.). "
-    });
-    infoBox.createEl("span", {
-      text: "As altera\xE7\xF5es s\xE3o salvas diretamente no arquivo original."
-    });
+    infoBox.createEl("span", { text: this.plugin.i18n.t("info-para2") });
     infoBox.createEl("br");
     infoBox.createEl("br");
-    infoBox.createEl("span", {
-      text: "Checkbox \u2014 marca ou desmarca a task. Se o plugin Tasks estiver instalado, usa a l\xF3gica dele "
-    });
-    infoBox.createEl("span", {
-      text: "(recorr\xEAncia autom\xE1tica, done date, etc.). Caso contr\xE1rio, usa l\xF3gica manual interna."
-    });
+    infoBox.createEl("span", { text: this.plugin.i18n.t("info-para3") });
     infoBox.createEl("br");
     infoBox.createEl("br");
-    infoBox.createEl("em", {
-      text: "Requer o plugin Tasks (obsidian-tasks-plugin) para criar e editar. Sem ele, apenas o toggle por checkbox funciona."
-    });
+    infoBox.createEl("em", { text: this.plugin.i18n.t("info-footer") });
     new import_obsidian.Setting(containerEl).setName(this.plugin.i18n.t("settings-appearance")).setHeading();
-    new import_obsidian.Setting(containerEl).setName("Usar tema do Obsidian").setDesc("Herda as cores do tema ativo (incluindo temas baixados). Desative para usar as cores padr\xE3o do plugin.").addToggle((toggle) => toggle.setValue(this.plugin.settings.useObsidianTheme).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Use Obsidian theme").setDesc("Inherit colors from active theme (including downloaded themes). Disable to use plugin default colors.").addToggle((toggle) => toggle.setValue(this.plugin.settings.useObsidianTheme).onChange(async (value) => {
       this.plugin.settings.useObsidianTheme = value;
       await this.plugin.saveSettings();
       this.app.workspace.getLeavesOfType(VIEW_TYPE_BLOCK_TIME).forEach((leaf) => {
@@ -2119,7 +2127,7 @@ var BlockTimeSettingTab = class extends import_obsidian.PluginSettingTab {
       });
     }));
     new import_obsidian.Setting(containerEl).setName(this.plugin.i18n.t("settings-notifications")).setHeading();
-    new import_obsidian.Setting(containerEl).setName("Ativar notifica\xE7\xF5es").setDesc("Notifica\xE7\xE3o desktop e in-app quando uma tarefa com hor\xE1rio estiver prestes a come\xE7ar.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNotifications).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Enable notifications").setDesc("Desktop and in-app notifications when a scheduled task is about to start.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableNotifications).onChange(async (value) => {
       this.plugin.settings.enableNotifications = value;
       await this.plugin.saveSettings();
       if (value) {
@@ -2128,28 +2136,28 @@ var BlockTimeSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.stopNotificationScheduler();
       }
     }));
-    new import_obsidian.Setting(containerEl).setName("Lembrete antecipado").setDesc("Notifica\xE7\xE3o extra antes do hor\xE1rio da tarefa.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableReminderBefore).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Early reminder").setDesc("Extra notification before task time.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableReminderBefore).onChange(async (value) => {
       this.plugin.settings.enableReminderBefore = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Minutos de anteced\xEAncia").setDesc("Quantos minutos antes do hor\xE1rio voc\xEA quer ser lembrado.").addSlider((slider) => slider.setLimits(1, 60, 1).setValue(this.plugin.settings.reminderMinutesBefore).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Minutes before").setDesc("How many minutes before task time you want to be reminded.").addSlider((slider) => slider.setLimits(1, 60, 1).setValue(this.plugin.settings.reminderMinutesBefore).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.reminderMinutesBefore = value;
       await this.plugin.saveSettings();
     }));
     new import_obsidian.Setting(containerEl).setName(this.plugin.i18n.t("settings-deadlines")).setHeading();
-    new import_obsidian.Setting(containerEl).setName("Ativar lembretes de prazo").setDesc("Notifica sobre tasks com tags de prazo pr\xF3ximas do vencimento.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableDeadlineReminders).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Enable deadline reminders").setDesc("Notify about tasks with deadline tags approaching due date.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableDeadlineReminders).onChange(async (value) => {
       this.plugin.settings.enableDeadlineReminders = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Tags de prazo").setDesc("Tags que identificam tasks com prazo. Separadas por v\xEDrgula.").addText((text) => text.setPlaceholder("#prazo, #deadline").setValue(this.plugin.settings.deadlineTags).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Deadline tags").setDesc("Tags that identify tasks with deadlines. Comma separated.").addText((text) => text.setPlaceholder("#prazo, #deadline").setValue(this.plugin.settings.deadlineTags).onChange(async (value) => {
       this.plugin.settings.deadlineTags = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Dias de anteced\xEAncia").setDesc("Quantos dias antes do prazo come\xE7ar a notificar.").addSlider((slider) => slider.setLimits(1, 30, 1).setValue(this.plugin.settings.deadlineReminderDays).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Days before").setDesc("How many days before deadline to start notifying.").addSlider((slider) => slider.setLimits(1, 30, 1).setValue(this.plugin.settings.deadlineReminderDays).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.deadlineReminderDays = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Hora do lembrete di\xE1rio").setDesc("A partir de que hora o lembrete de prazo dispara (uma vez por dia).").addSlider((slider) => slider.setLimits(6, 22, 1).setValue(this.plugin.settings.deadlineReminderHour).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Daily reminder time").setDesc("Time from which deadline reminder triggers (once per day).").addSlider((slider) => slider.setLimits(6, 22, 1).setValue(this.plugin.settings.deadlineReminderHour).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.deadlineReminderHour = value;
       await this.plugin.saveSettings();
     }));
@@ -2161,12 +2169,12 @@ var BlockTimeSettingTab = class extends import_obsidian.PluginSettingTab {
       cls: "setting-item-description"
     });
     const templateSettings = [
-      { key: "notifyTextEarlyTask", name: "Lembrete antecipado", desc: "X min antes da tarefa" },
-      { key: "notifyTextOnTimeTask", name: "No hor\xE1rio", desc: "Momento exato da tarefa" },
-      { key: "notifyTextDeadlineEarly", name: "Prazo \u2014 min antes", desc: "X min antes do prazo" },
-      { key: "notifyTextDeadlineNow", name: "Prazo \u2014 agora", desc: "Hor\xE1rio exato do prazo" },
-      { key: "notifyTextDeadlineToday", name: "Prazo \u2014 hoje", desc: "Prazo \xE9 hoje (sem hor\xE1rio)" },
-      { key: "notifyTextDeadlineDays", name: "Prazo \u2014 dias", desc: "Faltam X dias para o prazo" }
+      { key: "notifyTextEarlyTask", name: "Early reminder", desc: "X min before task" },
+      { key: "notifyTextOnTimeTask", name: "On time", desc: "Exact task time" },
+      { key: "notifyTextDeadlineEarly", name: "Deadline \u2014 min before", desc: "X min before deadline" },
+      { key: "notifyTextDeadlineNow", name: "Deadline \u2014 now", desc: "Exact deadline time" },
+      { key: "notifyTextDeadlineToday", name: "Deadline \u2014 today", desc: "Deadline is today (no time)" },
+      { key: "notifyTextDeadlineDays", name: "Deadline \u2014 days", desc: "X days until deadline" }
     ];
     for (const tmpl of templateSettings) {
       new import_obsidian.Setting(detailsContent).setName(tmpl.name).setDesc(tmpl.desc).addText((text) => text.setValue(this.plugin.settings[tmpl.key]).onChange(async (value) => {

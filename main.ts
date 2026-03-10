@@ -197,7 +197,12 @@ const TRANSLATIONS: Translations = {
 		'no-folders-selected': 'No folders selected (entire vault)',
 		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
 		'advanced-folder-mode': 'Advanced folder selection mode',
-		'advanced-folder-mode-desc': 'Use advanced folder picker with tree view (disable for simple text mode)'
+		'advanced-folder-mode-desc': 'Use advanced folder picker with tree view (disable for simple text mode)',
+		'info-title': 'How task creation and editing works:',
+		'info-para1': 'Click an empty slot in the hour grid — opens the Tasks plugin modal to create a new task. The task is saved automatically to the daily note for the selected day, using the folder and format configured in the Daily Notes plugin (Settings → Daily Notes).',
+		'info-para2': 'Double-click a task — opens the Tasks modal to edit the existing task (date, time, recurrence, etc.). Changes are saved directly to the original file.',
+		'info-para3': 'Checkbox — mark or unmark a task. If the Tasks plugin is installed, uses its logic (automatic recurrence, done date, etc.). Otherwise, uses the plugin\'s internal logic.',
+		'info-footer': 'Requires the Tasks plugin (obsidian-tasks-plugin) to create and edit tasks. Without it, only the checkbox toggle works.'
 	},
 	'pt': {
 		'view-title': 'Agenda de Blocos de Tempo',
@@ -254,7 +259,12 @@ const TRANSLATIONS: Translations = {
 		'no-folders-selected': 'Nenhuma pasta selecionada (vault inteiro)',
 		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
 		'advanced-folder-mode': 'Modo avançado de seleção de pastas',
-		'advanced-folder-mode-desc': 'Use o seletor avançado com árvore de pastas (desative para modo simples com texto)'
+		'advanced-folder-mode-desc': 'Use o seletor avançado com árvore de pastas (desative para modo simples com texto)',
+		'info-title': 'Como funciona a criação e edição de tasks:',
+		'info-para1': 'Clique em um slot vazio na grade de horas — abre o modal do plugin Tasks para criar uma nova task. A task é salva automaticamente no Daily Note do dia clicado, respeitando a pasta e formato configurados no plugin Daily Notes do Obsidian (Configurações → Daily Notes).',
+		'info-para2': 'Duplo-clique em uma task — abre o modal do Tasks para editar a task existente (data, hora, recorrência, etc.). As alterações são salvas diretamente no arquivo original.',
+		'info-para3': 'Checkbox — marca ou desmarca a task. Se o plugin Tasks estiver instalado, usa a lógica dele (recorrência automática, done date, etc.). Caso contrário, usa lógica manual interna.',
+		'info-footer': 'Requer o plugin Tasks (obsidian-tasks-plugin) para criar e editar. Sem ele, apenas o toggle por checkbox funciona.'
 	},
 	'es': {
 		'view-title': 'Agenda de Bloques de Tiempo',
@@ -311,7 +321,12 @@ const TRANSLATIONS: Translations = {
 		'no-folders-selected': 'Ninguna carpeta seleccionada (vault entero)',
 		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
 		'advanced-folder-mode': 'Modo avanzado de selección de carpetas',
-		'advanced-folder-mode-desc': 'Use el selector avanzado con árbol de carpetas (desactive para modo simple con texto)'
+		'advanced-folder-mode-desc': 'Use el selector avanzado con árbol de carpetas (desactive para modo simple con texto)',
+		'info-title': 'Cómo funciona la creación y edición de tareas:',
+		'info-para1': 'Haga clic en un espacio vacío en la cuadrícula de horas — abre el modal del plugin Tasks para crear una nueva tarea. La tarea se guarda automáticamente en la nota diaria del día seleccionado, usando la carpeta y formato configurados en el plugin Daily Notes (Configuración → Daily Notes).',
+		'info-para2': 'Doble clic en una tarea — abre el modal de Tasks para editar la tarea existente (fecha, hora, recurrencia, etc.). Los cambios se guardan directamente en el archivo original.',
+		'info-para3': 'Casilla de verificación — marcar o desmarcar una tarea. Si el plugin Tasks está instalado, usa su lógica (recurrencia automática, fecha de finalización, etc.). De lo contrario, usa la lógica interna del plugin.',
+		'info-footer': 'Requiere el plugin Tasks (obsidian-tasks-plugin) para crear y editar tareas. Sin él, solo funciona el toggle de la casilla de verificación.'
 	},
 	'fr': {
 		'view-title': 'Planificateur de Blocs de Temps',
@@ -368,7 +383,12 @@ const TRANSLATIONS: Translations = {
 		'no-folders-selected': 'Aucun dossier sélectionné (vault entier)',
 		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
 		'advanced-folder-mode': 'Mode avancé de sélection de dossiers',
-		'advanced-folder-mode-desc': 'Utilisez le sélecteur avancé avec arborescence (désactivez pour mode simple avec texte)'
+		'advanced-folder-mode-desc': 'Utilisez le sélecteur avancé avec arborescence (désactivez pour mode simple avec texte)',
+		'info-title': 'Comment fonctionne la création et l\'édition de tâches :',
+		'info-para1': 'Cliquez sur un créneau vide dans la grille d\'heures — ouvre le modal du plugin Tasks pour créer une nouvelle tâche. La tâche est sauvegardée automatiquement dans la note quotidienne du jour sélectionné, en utilisant le dossier et le format configurés dans le plugin Daily Notes (Paramètres → Daily Notes).',
+		'info-para2': 'Double-clic sur une tâche — ouvre le modal Tasks pour modifier la tâche existante (date, heure, récurrence, etc.). Les modifications sont sauvegardées directement dans le fichier original.',
+		'info-para3': 'Case à cocher — marquer ou démarquer une tâche. Si le plugin Tasks est installé, utilise sa logique (récurrence automatique, date de fin, etc.). Sinon, utilise la logique interne du plugin.',
+		'info-footer': 'Nécessite le plugin Tasks (obsidian-tasks-plugin) pour créer et modifier des tâches. Sans lui, seule la case à cocher fonctionne.'
 	},
 	'de': {
 		'view-title': 'Block-Zeitplaner',
@@ -425,7 +445,12 @@ const TRANSLATIONS: Translations = {
 		'no-folders-selected': 'Keine Ordner ausgewählt (ganzer Vault)',
 		'placeholders': 'Placeholders: {task} {min} {days} {time} {endTime} {file} {date}',
 		'advanced-folder-mode': 'Erweiterter Ordnerauswahlmodus',
-		'advanced-folder-mode-desc': 'Verwenden Sie erweiterten Ordnerauswahl mit Baumansicht (deaktivieren für einfachen Textmodus)'
+		'advanced-folder-mode-desc': 'Verwenden Sie erweiterten Ordnerauswahl mit Baumansicht (deaktivieren für einfachen Textmodus)',
+		'info-title': 'So funktioniert das Erstellen und Bearbeiten von Aufgaben:',
+		'info-para1': 'Klicken Sie auf einen leeren Zeitslot im Stundenraster — öffnet das Tasks-Plugin-Modal zum Erstellen einer neuen Aufgabe. Die Aufgabe wird automatisch in der Tagesnotiz des ausgewählten Tages gespeichert, unter Verwendung des Ordners und Formats, das im Daily Notes-Plugin konfiguriert ist (Einstellungen → Daily Notes).',
+		'info-para2': 'Doppelklick auf eine Aufgabe — öffnet das Tasks-Modal zum Bearbeiten der vorhandenen Aufgabe (Datum, Uhrzeit, Wiederholung usw.). Änderungen werden direkt in der Originaldatei gespeichert.',
+		'info-para3': 'Kontrollkästchen — Aufgabe markieren oder demarkieren. Wenn das Tasks-Plugin installiert ist, wird dessen Logik verwendet (automatische Wiederholung, Erledigungsdatum usw.). Andernfalls wird die interne Logik des Plugins verwendet.',
+		'info-footer': 'Erfordert das Tasks-Plugin (obsidian-tasks-plugin) zum Erstellen und Bearbeiten von Aufgaben. Ohne es funktioniert nur das Kontrollkästchen.'
 	},
 	'it': {
 		'view-title': 'Programmatore di Blocchi di Tempo',
@@ -2361,7 +2386,7 @@ class BlockTimeView extends ItemView {
 				})();
 			});
 
-			const textSpan = item.createSpan({ text: task.text || "Tarefa sem título" });
+			const textSpan = item.createSpan({ text: task.text || "Untitled task" });
 			// Click simples → abrir arquivo
 			textSpan.addEventListener("click", () => {
 				void (async () => {
@@ -2661,11 +2686,11 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Visualização padrão")
-			.setDesc("Escolha entre visualização diária ou semanal")
+			.setName("Default view")
+			.setDesc("Choose between daily or weekly view")
 			.addDropdown(dropdown => dropdown
-				.addOption("day", "Diária")
-				.addOption("week", "Semanal")
+				.addOption("day", "Daily")
+				.addOption("week", "Weekly")
 				.setValue(this.plugin.settings.defaultView)
 				.onChange(async (value: "day" | "week") => {
 					this.plugin.settings.defaultView = value;
@@ -2673,43 +2698,26 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Pastas a escanear")
-			.setDesc("Selecione as pastas onde buscar tarefas. Nenhuma selecionada = vault inteiro.");
+			.setName(this.plugin.i18n.t('scan-folders'))
+			.setDesc(this.plugin.i18n.t('scan-folders-desc'));
 
 		this.renderFolderPicker(containerEl);
 
 		// Info box: integração Tasks API + criação de tasks
 		const infoBox = containerEl.createDiv({ cls: "setting-item-description block-time-info-box" });
-		infoBox.createEl("strong", { text: "Como funciona a criação e edição de tasks:" });
+		infoBox.createEl("strong", { text: this.plugin.i18n.t('info-title') });
 		infoBox.createEl("br");
 		infoBox.createEl("br");
-		infoBox.createEl("span", {
-			text: "Clique em slot vazio na grade de horas — abre o modal do plugin Tasks para criar uma nova task. "
-		});
-		infoBox.createEl("span", {
-			text: "A task é salva automaticamente no Daily Note do dia clicado, respeitando a pasta e formato configurados no plugin Daily Notes do Obsidian (Configurações → Daily Notes)."
-		});
+		infoBox.createEl("span", { text: this.plugin.i18n.t('info-para1') });
 		infoBox.createEl("br");
 		infoBox.createEl("br");
-		infoBox.createEl("span", {
-			text: "Duplo-clique em uma task — abre o modal do Tasks para editar a task existente (data, hora, recorrência, etc.). "
-		});
-		infoBox.createEl("span", {
-			text: "As alterações são salvas diretamente no arquivo original."
-		});
+		infoBox.createEl("span", { text: this.plugin.i18n.t('info-para2') });
 		infoBox.createEl("br");
 		infoBox.createEl("br");
-		infoBox.createEl("span", {
-			text: "Checkbox — marca ou desmarca a task. Se o plugin Tasks estiver instalado, usa a lógica dele "
-		});
-		infoBox.createEl("span", {
-			text: "(recorrência automática, done date, etc.). Caso contrário, usa lógica manual interna."
-		});
+		infoBox.createEl("span", { text: this.plugin.i18n.t('info-para3') });
 		infoBox.createEl("br");
 		infoBox.createEl("br");
-		infoBox.createEl("em", {
-			text: "Requer o plugin Tasks (obsidian-tasks-plugin) para criar e editar. Sem ele, apenas o toggle por checkbox funciona."
-		});
+		infoBox.createEl("em", { text: this.plugin.i18n.t('info-footer') });
 
 		// ══════════════════════════════════════════════
 		// SEÇÃO 2: APARÊNCIA
@@ -2719,8 +2727,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName("Usar tema do Obsidian")
-			.setDesc("Herda as cores do tema ativo (incluindo temas baixados). Desative para usar as cores padrão do plugin.")
+			.setName("Use Obsidian theme")
+			.setDesc("Inherit colors from active theme (including downloaded themes). Disable to use plugin default colors.")
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.useObsidianTheme)
 				.onChange(async (value) => {
@@ -2740,8 +2748,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName("Ativar notificações")
-			.setDesc("Notificação desktop e in-app quando uma tarefa com horário estiver prestes a começar.")
+			.setName("Enable notifications")
+			.setDesc("Desktop and in-app notifications when a scheduled task is about to start.")
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableNotifications)
 				.onChange(async (value) => {
@@ -2755,8 +2763,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Lembrete antecipado")
-			.setDesc("Notificação extra antes do horário da tarefa.")
+			.setName("Early reminder")
+			.setDesc("Extra notification before task time.")
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableReminderBefore)
 				.onChange(async (value) => {
@@ -2765,8 +2773,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Minutos de antecedência")
-			.setDesc("Quantos minutos antes do horário você quer ser lembrado.")
+			.setName("Minutes before")
+			.setDesc("How many minutes before task time you want to be reminded.")
 			.addSlider(slider => slider
 				.setLimits(1, 60, 1)
 				.setValue(this.plugin.settings.reminderMinutesBefore)
@@ -2784,8 +2792,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName("Ativar lembretes de prazo")
-			.setDesc("Notifica sobre tasks com tags de prazo próximas do vencimento.")
+			.setName("Enable deadline reminders")
+			.setDesc("Notify about tasks with deadline tags approaching due date.")
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableDeadlineReminders)
 				.onChange(async (value) => {
@@ -2794,8 +2802,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Tags de prazo")
-			.setDesc("Tags que identificam tasks com prazo. Separadas por vírgula.")
+			.setName("Deadline tags")
+			.setDesc("Tags that identify tasks with deadlines. Comma separated.")
 			.addText(text => text
 				.setPlaceholder("#prazo, #deadline")
 				.setValue(this.plugin.settings.deadlineTags)
@@ -2805,8 +2813,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Dias de antecedência")
-			.setDesc("Quantos dias antes do prazo começar a notificar.")
+			.setName("Days before")
+			.setDesc("How many days before deadline to start notifying.")
 			.addSlider(slider => slider
 				.setLimits(1, 30, 1)
 				.setValue(this.plugin.settings.deadlineReminderDays)
@@ -2817,8 +2825,8 @@ class BlockTimeSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName("Hora do lembrete diário")
-			.setDesc("A partir de que hora o lembrete de prazo dispara (uma vez por dia).")
+			.setName("Daily reminder time")
+			.setDesc("Time from which deadline reminder triggers (once per day).")
 			.addSlider(slider => slider
 				.setLimits(6, 22, 1)
 				.setValue(this.plugin.settings.deadlineReminderHour)
@@ -2841,12 +2849,12 @@ class BlockTimeSettingTab extends PluginSettingTab {
 		});
 
 		const templateSettings: { key: keyof BlockTimeSettings; name: string; desc: string }[] = [
-			{ key: "notifyTextEarlyTask", name: "Lembrete antecipado", desc: "X min antes da tarefa" },
-			{ key: "notifyTextOnTimeTask", name: "No horário", desc: "Momento exato da tarefa" },
-			{ key: "notifyTextDeadlineEarly", name: "Prazo — min antes", desc: "X min antes do prazo" },
-			{ key: "notifyTextDeadlineNow", name: "Prazo — agora", desc: "Horário exato do prazo" },
-			{ key: "notifyTextDeadlineToday", name: "Prazo — hoje", desc: "Prazo é hoje (sem horário)" },
-			{ key: "notifyTextDeadlineDays", name: "Prazo — dias", desc: "Faltam X dias para o prazo" },
+			{ key: "notifyTextEarlyTask", name: "Early reminder", desc: "X min before task" },
+			{ key: "notifyTextOnTimeTask", name: "On time", desc: "Exact task time" },
+			{ key: "notifyTextDeadlineEarly", name: "Deadline — min before", desc: "X min before deadline" },
+			{ key: "notifyTextDeadlineNow", name: "Deadline — now", desc: "Exact deadline time" },
+			{ key: "notifyTextDeadlineToday", name: "Deadline — today", desc: "Deadline is today (no time)" },
+			{ key: "notifyTextDeadlineDays", name: "Deadline — days", desc: "X days until deadline" },
 		];
 
 		for (const tmpl of templateSettings) {
