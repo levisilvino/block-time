@@ -504,7 +504,7 @@ function setCssProps(element, props) {
     element.style.setProperty(key, String(value));
   }
 }
-var PLUGIN_VERSION = "1.0.0";
+var PLUGIN_VERSION = "1.0.2";
 var VIEW_TYPE_BLOCK_TIME = "block-time-view";
 var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
   constructor() {
@@ -512,7 +512,6 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     this.notificationInterval = null;
     this.firedNotifications = /* @__PURE__ */ new Set();
     this.lastResetDate = "";
-    this.fileContentCache = /* @__PURE__ */ new Map();
     // Índice persistente de tasks por arquivo — invalidação incremental
     this.taskIndex = /* @__PURE__ */ new Map();
     this.dirtyFiles = /* @__PURE__ */ new Set();
@@ -568,7 +567,6 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
         if (file instanceof import_obsidian.TFile) {
-          this.fileContentCache.delete(file.path);
           this.dirtyFiles.add(file.path);
         }
       })
@@ -576,7 +574,6 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
         if (file instanceof import_obsidian.TFile) {
-          this.fileContentCache.delete(file.path);
           this.taskIndex.delete(file.path);
           this.dirtyFiles.delete(file.path);
         }
@@ -584,11 +581,9 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        this.fileContentCache.delete(oldPath);
         this.taskIndex.delete(oldPath);
         this.dirtyFiles.delete(oldPath);
         if (file instanceof import_obsidian.TFile) {
-          this.fileContentCache.delete(file.path);
           this.dirtyFiles.add(file.path);
         }
       })
@@ -598,7 +593,7 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
   }
   onunload() {
     this.stopNotificationScheduler();
-    this.fileContentCache.clear();
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_BLOCK_TIME);
     console.debug(`Block Time Scheduler v${PLUGIN_VERSION} descarregado!`);
   }
   getTasksApi() {
@@ -618,9 +613,10 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
     this.stopNotificationScheduler();
     this.firedNotifications.clear();
     this.lastResetDate = new Date().toDateString();
-    this.notificationInterval = setInterval(() => {
+    this.notificationInterval = window.setInterval(() => {
       void this.checkAndFireNotifications();
     }, 6e4);
+    this.registerInterval(this.notificationInterval);
     setTimeout(() => {
       void this.checkAndFireNotifications();
     }, 5e3);
@@ -639,7 +635,7 @@ var BlockTimeSchedulerPlugin = class extends import_obsidian.Plugin {
       this.firedNotifications.clear();
       this.lastResetDate = todayStr;
     }
-    const taskParser = new TaskParser(this.app, this.settings, this.fileContentCache, this.taskIndex, this.dirtyFiles);
+    const taskParser = new TaskParser(this.app, this.settings, this.taskIndex, this.dirtyFiles);
     const now = new Date();
     const allTasks = await taskParser.getAllTasks();
     const todayTasks = allTasks.filter((t) => t.date && taskParser.isSameDay(t.date, now));
@@ -793,29 +789,17 @@ ${body}`, 1e4);
   }
 };
 var _TaskParser = class {
-  constructor(app, settings, contentCache, taskIndex, dirtyFiles) {
+  constructor(app, settings, taskIndex, dirtyFiles) {
     // Métricas de performance
-    this.cacheHits = 0;
-    this.cacheMisses = 0;
     this.filesReindexed = 0;
     this.filesSkipped = 0;
     this.app = app;
     this.settings = settings;
-    this.contentCache = contentCache;
     this.taskIndex = taskIndex;
     this.dirtyFiles = dirtyFiles;
   }
   async readFile(file) {
-    var _a;
-    const path = file.path;
-    if (this.contentCache.has(path)) {
-      this.cacheHits++;
-      return (_a = this.contentCache.get(path)) != null ? _a : "";
-    }
-    this.cacheMisses++;
-    const content = await this.app.vault.cachedRead(file);
-    this.contentCache.set(path, content);
-    return content;
+    return await this.app.vault.cachedRead(file);
   }
   /** Yield ao main thread para não bloquear a UI */
   yieldToMain() {
@@ -854,8 +838,6 @@ var _TaskParser = class {
   }
   async getAllTasks() {
     const perfStart = performance.now();
-    this.cacheHits = 0;
-    this.cacheMisses = 0;
     this.filesReindexed = 0;
     this.filesSkipped = 0;
     const allFiles = this.app.vault.getMarkdownFiles();
@@ -895,7 +877,7 @@ var _TaskParser = class {
     const totalFiles = files.length;
     const indexedCount = this.taskIndex.size;
     console.debug(
-      `[BlockTime] Scan: ${(perfEnd - perfStart).toFixed(1)}ms | ${totalFiles} arquivos | ${indexedCount} indexados | ${this.filesReindexed} re-parsed | ${this.filesSkipped} skipped | ${tasks.length} tasks | Cache: ${this.cacheHits}/${this.cacheHits + this.cacheMisses} hits`
+      `[BlockTime] Scan: ${(perfEnd - perfStart).toFixed(1)}ms | ${totalFiles} arquivos | ${indexedCount} indexados | ${this.filesReindexed} re-parsed | ${this.filesSkipped} skipped | ${tasks.length} tasks`
     );
     const today = new Date();
     return tasks.filter((task) => {
@@ -1535,9 +1517,8 @@ var BlockTimeView = class extends import_obsidian.ItemView {
     this.isRendering = false;
     this.dayCheckInterval = null;
     this.lastKnownDay = "";
-    this.visibilityHandler = null;
     this.plugin = plugin;
-    this.taskParser = new TaskParser(this.app, plugin.settings, plugin.fileContentCache, plugin.taskIndex, plugin.dirtyFiles);
+    this.taskParser = new TaskParser(this.app, plugin.settings, plugin.taskIndex, plugin.dirtyFiles);
     this.currentDate = new Date();
     this.viewMode = plugin.settings.defaultView;
   }
@@ -1572,24 +1553,19 @@ var BlockTimeView = class extends import_obsidian.ItemView {
         }
       })
     );
-    this.dayCheckInterval = setInterval(() => {
+    this.dayCheckInterval = window.setInterval(() => {
       this.checkDayChange();
     }, 6e4);
-    this.visibilityHandler = () => {
+    this.registerInterval(this.dayCheckInterval);
+    this.registerDomEvent(document, "visibilitychange", () => {
       if (document.visibilityState === "visible") {
         this.checkDayChange();
       }
-    };
-    document.addEventListener("visibilitychange", this.visibilityHandler);
+    });
   }
   onClose() {
     if (this.renderTimeout)
       clearTimeout(this.renderTimeout);
-    if (this.dayCheckInterval)
-      clearInterval(this.dayCheckInterval);
-    if (this.visibilityHandler) {
-      document.removeEventListener("visibilitychange", this.visibilityHandler);
-    }
     this.contentEl.empty();
     return Promise.resolve();
   }
@@ -1946,6 +1922,10 @@ var BlockTimeView = class extends import_obsidian.ItemView {
         let file = this.app.vault.getAbstractFileByPath(targetPath);
         if (!file) {
           try {
+            const parentDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
+            if (parentDir && !this.app.vault.getAbstractFileByPath(parentDir)) {
+              await this.app.vault.createFolder(parentDir);
+            }
             const fallbackName = date.toISOString().slice(0, 10);
             const fileName = (_b = (_a = targetPath.split("/").pop()) == null ? void 0 : _a.replace(".md", "")) != null ? _b : fallbackName;
             file = await this.app.vault.create(targetPath, `# ${fileName}
