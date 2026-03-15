@@ -2189,7 +2189,7 @@ var BlockTimeSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Folder for task creation").setDesc("Folder or file path where new tasks will be created (default: task)").addText((text) => {
       const folders = this.getAllFolders();
       new FolderSuggest(this.app, text.inputEl, folders);
-      return text.setPlaceholder("Example: task or Tasks/MyTasks").setValue(this.plugin.settings.taskCreationFolder).onChange(async (value) => {
+      return text.setPlaceholder("Example: task or tasks/mytasks").setValue(this.plugin.settings.taskCreationFolder).onChange(async (value) => {
         this.plugin.settings.taskCreationFolder = value;
         await this.plugin.saveSettings();
       });
